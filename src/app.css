@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================================================
+   MY FINANCE — DESIGN TOKENS
+   Ported from the original vanilla app's css/base.css.
+   Theme = body[data-theme="..."], toggled at runtime (not a
+   Tailwind compile-time variant) so switching themes never
+   requires a rebuild. Semantic warn(orange)/info(blue) stay
+   theme-neutral on purpose — they're status colors, not brand
+   identity.
+   ================================================ */
+
+body, body[data-theme='emerald'] {
+  --primary: #16a34a;
+  --primary-light: #22c55e;
+  --primary-bg: rgba(22, 163, 74, 0.1);
+  --primary-glow: rgba(34, 197, 94, 0.25);
+  --income: #16a34a;
+  --income-bg: rgba(22, 163, 74, 0.1);
+  --expense: #ef4444;
+  --expense-bg: rgba(239, 68, 68, 0.1);
+  --accent-50: #f0fdf4;
+  --accent-100: #dcfce7;
+  --accent-200: #bbf7d0;
+  --accent-500: #22c55e;
+  --accent-600: #16a34a;
+  --accent-700: #15803d;
+  --accent-800: #166534;
+  --accent-900: #14532d;
+}
+
+/* v6.0 — "Soft Cherry Blossom" replaces the old dark-magenta pink theme.
+   Old (v5.8): primary #db2777, expense #9f1239 — a saturated, jewel-tone
+   pink read as "elegant dark". New direction: sakura petal pink — softer,
+   warmer, lighter accent scale (--accent-50 is a pale blush instead of a
+   near-white neutral tint), while keeping income/expense distinguishable
+   by shade like the original theme did. */
+body[data-theme='pink'] {
+  --primary: #ec6fa0;
+  --primary-light: #f7a8c4;
+  --primary-bg: rgba(236, 111, 160, 0.1);
+  --primary-glow: rgba(247, 168, 196, 0.3);
+  --income: #d6467e;
+  --income-bg: rgba(214, 70, 126, 0.1);
+  --expense: #b5305f;
+  --expense-bg: rgba(181, 48, 95, 0.12);
+  --accent-50: #fff5f8;
+  --accent-100: #fde6ef;
+  --accent-200: #fbc9de;
+  --accent-500: #ec6fa0;
+  --accent-600: #d6467e;
+  --accent-700: #b5305f;
+  --accent-800: #8c2249;
+  --accent-900: #611731;
+}
+
+body[data-theme='ocean'] {
+  --primary: #0284c7;
+  --primary-light: #38bdf8;
+  --primary-bg: rgba(2, 132, 199, 0.1);
+  --primary-glow: rgba(56, 189, 248, 0.28);
+  --income: #0891b2;
+  --income-bg: rgba(8, 145, 178, 0.1);
+  --expense: #ea580c;
+  --expense-bg: rgba(234, 88, 12, 0.1);
+  --accent-50: #f0f9ff;
+  --accent-100: #e0f2fe;
+  --accent-200: #bae6fd;
+  --accent-500: #38bdf8;
+  --accent-600: #0284c7;
+  --accent-700: #0369a1;
+  --accent-800: #075985;
+  --accent-900: #0c4a6e;
+}
+
+:root {
+  --warn: #f59e0b;
+  --warn-bg: rgba(245, 158, 11, 0.1);
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.1);
+
+  /* LIGHT MODE (default) */
+  --bg-base: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card2: #f1f5f9;
+  --bg-input: #f8fafc;
+  --bg-pill: #f1f5f9;
+  --bg-nav: #ffffff;
+  --bg-sheet: #ffffff;
+
+  --txt-primary: #0f172a;
+  --txt-secondary: #64748b;
+  --txt-muted: #94a3b8;
+
+  --border: #e2e8f0;
+  --border-focus: rgba(22, 163, 74, 0.5);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+
+  --nav-h: 64px;
+  --header-h: 56px;
+  --tr: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.dark-mode {
+  --bg-base: #0a0f1a;
+  --bg-card: #111827;
+  --bg-card2: #1a2235;
+  --bg-input: #1a2235;
+  --bg-pill: #1a2235;
+  --bg-nav: #0d1526;
+  --bg-sheet: #111827;
+  --txt-primary: #f1f5f9;
+  --txt-secondary: #94a3b8;
+  --txt-muted: #475569;
+  --border: #1e293b;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--bg-base);
+    color: var(--txt-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    transition:
+      background var(--tr),
+      color var(--tr);
+  }
+  ::-webkit-scrollbar {
+    width: 0;
+  }
+}
