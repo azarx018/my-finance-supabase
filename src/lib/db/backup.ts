@@ -60,13 +60,17 @@ export interface ImportResult {
 /**
  * Imports a JSON backup produced by exportJSON() above.
  *
- * Deliberately a MERGE, not a replace: each row is upserted by its
- * original id (new id → inserted, existing id → overwritten with the
- * imported version). The original vanilla app's importJSON() wiped
- * every table and replaced it wholesale — safe there, since it was the
- * only copy of the data. Here, a wholesale replace would also queue a
- * destructive overwrite to Supabase and every other synced device, so a
- * merge is the safer default for a synced, multi-device app.
+ * A MERGE, not a wholesale replace: each row is upserted by its original
+ * id (new id → inserted, existing id → overwritten with the imported
+ * version). A wholesale replace would also queue a destructive overwrite
+ * to Supabase and every other synced device, so merge is the safer
+ * default for a synced, multi-device app.
+ *
+ * Uses `{ restore: true }` so importing can bring back a row you'd
+ * since deleted locally — the export only ever contains active rows, so
+ * if an id in the file matches a soft-deleted local row, the import is
+ * clearly an intentional "put this back" action, not an accidental
+ * resurrection.
  *
  * Known gap: only understands this app's own export format (snake_case
  * fields matching the Supabase schema). Importing a backup from the
@@ -86,7 +90,7 @@ export async function importJSON(file: File): Promise<ImportResult> {
     const rows = data[table];
     if (!Array.isArray(rows)) continue;
     for (const row of rows) {
-      await upsertRecord(table, row);
+      await upsertRecord(table, row, { restore: true });
       total++;
     }
     counts[table] = rows.length;

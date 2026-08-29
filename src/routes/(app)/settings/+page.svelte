@@ -5,6 +5,7 @@
   import { notifEnabled, notifTime } from '$lib/stores/notif';
   import { scheduleNotif } from '$lib/notif/scheduler';
   import { exportJSON, exportCSV, importJSON } from '$lib/db/backup';
+  import { wipeAllData, purgeAllDataPermanently } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import { canInstall, promptInstall } from '$lib/pwa/install';
 
@@ -18,6 +19,15 @@
 
   let importing = false;
   let fileInput: HTMLInputElement;
+  let wiping = false;
+  // Two separate destructive flows, kept mutually exclusive on purpose —
+  // 'soft' just hides everything (reversible via support/DB access,
+  // still synced as a tombstone to other devices); 'hard' is a true
+  // permanent delete from Supabase with no tombstone at all.
+  let dangerMode: 'none' | 'soft' | 'hard' = 'none';
+  let confirmText = '';
+  const SOFT_CONFIRM_WORD = 'HAPUS';
+  const HARD_CONFIRM_WORD = 'HAPUS PERMANEN';
 
   async function handleExportJSON() {
     try {
@@ -49,6 +59,39 @@
     } finally {
       importing = false;
       if (fileInput) fileInput.value = '';
+    }
+  }
+
+  // Two layers of friction on purpose: this is irreversible for anyone
+  // without a manual backup, and unlike a soft-delete on a single
+  // record, there's no easy "undo" button for wiping everything.
+  async function handleWipeAll() {
+    if (confirmText !== SOFT_CONFIRM_WORD) return;
+    wiping = true;
+    try {
+      await wipeAllData();
+      showToast('🗑️ Semua data disembunyikan (masih tersimpan di server)');
+      dangerMode = 'none';
+      confirmText = '';
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menghapus data', 'error');
+    } finally {
+      wiping = false;
+    }
+  }
+
+  async function handlePurgeAll() {
+    if (confirmText !== HARD_CONFIRM_WORD) return;
+    wiping = true;
+    try {
+      await purgeAllDataPermanently();
+      showToast('🗑️ Semua data dihapus permanen dari server');
+      dangerMode = 'none';
+      confirmText = '';
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menghapus data', 'error');
+    } finally {
+      wiping = false;
     }
   }
 </script>
@@ -122,6 +165,121 @@
         Impor akan menggabungkan (bukan menimpa total) data yang sudah ada — data dengan ID yang
         sama akan diperbarui, sisanya ditambahkan.
       </p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-xs font-medium text-txt-secondary mb-3">Zona Berbahaya</h2>
+    <div class="bg-base-card rounded-xl shadow-sm border p-4 flex flex-col gap-3" style="border-color: var(--expense)">
+      {#if dangerMode === 'none'}
+        <div>
+          <p class="text-sm font-medium" style="color: var(--expense)">Kosongkan Data</p>
+          <p class="text-xs text-txt-secondary mt-1">
+            Menyembunyikan semua dompet, transaksi, hutang, tabungan, budget, dan pengingat dari
+            tampilan app. Datanya <b>masih tersimpan</b> di server (soft-delete) — bisa membantu
+            kalau suatu saat butuh dipulihkan. Untuk benar-benar menghapus dari server, pakai opsi
+            di bawah.
+          </p>
+        </div>
+        <button
+          on:click={() => {
+            dangerMode = 'soft';
+            confirmText = '';
+          }}
+          class="w-full text-sm font-medium py-2.5 rounded-lg border"
+          style="color: var(--expense); border-color: var(--expense)"
+        >
+          Kosongkan Data
+        </button>
+
+        <hr class="border-border my-1" />
+
+        <div>
+          <p class="text-sm font-medium" style="color: var(--expense)">Hapus Permanen dari Server</p>
+          <p class="text-xs text-txt-secondary mt-1">
+            Benar-benar menghapus semua baris dari database Supabase, bukan cuma menyembunyikan.
+            <b>Peringatan:</b> kalau kamu login di device lain yang sedang offline saat ini, device
+            itu tidak akan tahu datanya dihapus dan bisa jadi tidak sinkron setelahnya. Pastikan
+            semua device online & tersinkron dulu. Backup JSON dulu kalau masih ragu.
+          </p>
+        </div>
+        <button
+          on:click={() => {
+            dangerMode = 'hard';
+            confirmText = '';
+          }}
+          class="w-full text-sm font-medium py-2.5 rounded-lg text-white"
+          style="background: var(--expense)"
+        >
+          Hapus Permanen dari Server
+        </button>
+      {:else if dangerMode === 'soft'}
+        <div>
+          <p class="text-sm font-medium" style="color: var(--expense)">Yakin mau kosongkan data?</p>
+          <p class="text-xs text-txt-secondary mt-1">
+            Data disembunyikan dari app tapi masih ada di server. Ketik <b>{SOFT_CONFIRM_WORD}</b> untuk
+            konfirmasi.
+          </p>
+        </div>
+        <input
+          bind:value={confirmText}
+          placeholder={SOFT_CONFIRM_WORD}
+          class="w-full rounded-lg bg-base-input border border-border px-4 py-2.5 text-sm text-txt-primary"
+        />
+        <div class="flex gap-2">
+          <button
+            on:click={() => {
+              dangerMode = 'none';
+              confirmText = '';
+            }}
+            class="flex-1 text-sm py-2.5 rounded-lg border border-border text-txt-secondary"
+          >
+            Batal
+          </button>
+          <button
+            on:click={handleWipeAll}
+            disabled={confirmText !== SOFT_CONFIRM_WORD || wiping}
+            class="flex-1 text-sm font-medium py-2.5 rounded-lg text-white disabled:opacity-40"
+            style="background: var(--expense)"
+          >
+            {wiping ? 'Memproses…' : 'Kosongkan Data'}
+          </button>
+        </div>
+      {:else}
+        <div>
+          <p class="text-sm font-medium" style="color: var(--expense)">
+            Yakin mau hapus permanen dari server?
+          </p>
+          <p class="text-xs text-txt-secondary mt-1">
+            Tindakan ini <b>tidak bisa dibatalkan sama sekali</b>. Ketik
+            <b>{HARD_CONFIRM_WORD}</b> untuk konfirmasi.
+          </p>
+        </div>
+        <input
+          bind:value={confirmText}
+          placeholder={HARD_CONFIRM_WORD}
+          class="w-full rounded-lg bg-base-input border border-border px-4 py-2.5 text-sm text-txt-primary"
+        />
+        <div class="flex gap-2">
+          <button
+            on:click={() => {
+              dangerMode = 'none';
+              confirmText = '';
+            }}
+            class="flex-1 text-sm py-2.5 rounded-lg border border-border text-txt-secondary"
+          >
+            Batal
+          </button>
+          <button
+            on:click={handlePurgeAll}
+            disabled={confirmText !== HARD_CONFIRM_WORD || wiping}
+            class="flex-1 text-sm font-medium py-2.5 rounded-lg text-white disabled:opacity-40"
+            style="background: var(--expense)"
+          >
+            {wiping ? 'Menghapus…' : 'Hapus Permanen'}
+          </button>
+        </div>
+      {/if}
     </div>
   </section>
 

@@ -55,6 +55,30 @@ create table if not exists public.saving_buckets (
   deleted_at  timestamptz
 );
 
+-- ===================== SAVING TXS (deposit/withdraw ke kantong tabungan) =====================
+-- BUGFIX: this table was referenced by the index below, the updated_at
+-- trigger loop, and the RLS policy loop further down — but the
+-- `create table` itself was missing. Since Supabase's SQL editor runs a
+-- pasted script as one transaction, the very first reference to a
+-- nonexistent `public.saving_txs` (the index a few lines down) would
+-- abort the whole script, meaning EVERY table after that point —
+-- including the updated_at triggers and, critically, the RLS policies
+-- for every table — never actually got created. Adding the table here
+-- fixes both the missing-table bug and un-blocks the rest of the script.
+create table if not exists public.saving_txs (
+  id          uuid primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  bucket_id   uuid not null references public.saving_buckets(id) on delete cascade,
+  wallet_id   uuid references public.wallets(id) on delete set null,
+  type        text not null check (type in ('deposit', 'withdraw')),
+  amount      numeric not null,
+  date        date not null,
+  note        text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  deleted_at  timestamptz
+);
+
 -- ===================== SAVING GOALS (legacy "goals" feature) =====================
 create table if not exists public.goals (
   id          uuid primary key,
@@ -164,6 +188,7 @@ create index if not exists idx_wallets_sync           on public.wallets         
 create index if not exists idx_custom_categories_sync  on public.custom_categories (user_id, updated_at);
 create index if not exists idx_saving_buckets_sync     on public.saving_buckets    (user_id, updated_at);
 create index if not exists idx_saving_txs_sync          on public.saving_txs        (user_id, updated_at);
+create index if not exists idx_saving_txs_bucket        on public.saving_txs        (bucket_id);
 create index if not exists idx_goals_sync              on public.goals             (user_id, updated_at);
 create index if not exists idx_debts_sync              on public.debts             (user_id, updated_at);
 create index if not exists idx_debt_payments_sync      on public.debt_payments     (user_id, updated_at);

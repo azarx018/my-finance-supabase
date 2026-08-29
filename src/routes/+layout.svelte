@@ -4,7 +4,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { session, authReady, initAuth } from '$lib/stores/auth';
+  import { session, authReady, initAuth, passwordRecovery } from '$lib/stores/auth';
   import { initPwa } from '$lib/pwa/register';
   import { listenInstallPrompt } from '$lib/pwa/install';
 
@@ -15,12 +15,19 @@
   });
 
   // Route guard: no session → /login. Signed in but sitting on /login →
-  // bounce into the app. Runs only once authReady is true so we never
-  // redirect based on a not-yet-resolved session check.
+  // bounce into the app. /reset-password is a special case: a recovery
+  // session counts as "signed in" for Supabase's purposes, but the user
+  // must land on the reset form, not skip straight into the app.
   $: if ($authReady) {
-    const onLoginPage = $page.url.pathname === '/login';
-    if (!$session && !onLoginPage) goto('/login');
-    if ($session && onLoginPage) goto('/dashboard');
+    const path = $page.url.pathname;
+    const onLoginPage = path === '/login';
+    const onResetPage = path === '/reset-password';
+    if ($passwordRecovery) {
+      if (!onResetPage) goto('/reset-password');
+    } else {
+      if (!$session && !onLoginPage) goto('/login');
+      if ($session && (onLoginPage || onResetPage)) goto('/dashboard');
+    }
   }
 </script>
 
