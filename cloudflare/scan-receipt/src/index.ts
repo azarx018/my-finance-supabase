@@ -185,7 +185,7 @@ async function callGemini(
 
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/` +
-    `gemini-3-flash-preview:generateContent?key=${apiKey}`;
+    `gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
 
   const responseSchema = buildResponseSchema(categories);
 
