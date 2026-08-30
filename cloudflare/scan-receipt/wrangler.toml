@@ -13,3 +13,19 @@ ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://my-financ
 # same project URL your anon key already points to client-side). Used
 # to build the JWKS endpoint for verifying login tokens.
 SUPABASE_URL = "https://fwvsjtopghzmubhzlyae.supabase.co"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+redact_query_string = false
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
