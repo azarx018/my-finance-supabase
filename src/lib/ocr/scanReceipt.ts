@@ -1,4 +1,4 @@
-import { PUBLIC_SCAN_RECEIPT_URL } from '$env/static/public';
+import { PUBLIC_AI_WORKER_URL } from '$env/static/public';
 import type { CompressedImage } from '$lib/media/compressImage';
 
 export interface ReceiptCategoryOption {
@@ -15,11 +15,11 @@ export interface ScanReceiptResult {
   categoryId: string | null;
 }
 
-/** True if a scan-receipt Worker URL has been configured — lets the UI
+/** True if the AI Worker's base URL has been configured — lets the UI
  *  hide the "🪄 Baca Struk Otomatis" button entirely rather than show a
  *  button that always fails when self-hosters skip this optional setup. */
 export function isReceiptScanConfigured(): boolean {
-  return Boolean(PUBLIC_SCAN_RECEIPT_URL);
+  return Boolean(PUBLIC_AI_WORKER_URL);
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -47,13 +47,13 @@ export async function scanReceipt(
   categories: ReceiptCategoryOption[],
   accessToken: string
 ): Promise<ScanReceiptResult | null> {
-  if (!PUBLIC_SCAN_RECEIPT_URL) {
-    throw new Error('Fitur baca struk belum dikonfigurasi (PUBLIC_SCAN_RECEIPT_URL kosong)');
+  if (!PUBLIC_AI_WORKER_URL) {
+    throw new Error('Fitur baca struk belum dikonfigurasi (PUBLIC_AI_WORKER_URL kosong)');
   }
   const mimeType = photo.ext === 'webp' ? 'image/webp' : 'image/jpeg';
   const imageBase64 = await blobToBase64(photo.blob);
 
-  const res = await fetch(PUBLIC_SCAN_RECEIPT_URL, {
+  const res = await fetch(`${PUBLIC_AI_WORKER_URL}/scan-receipt`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

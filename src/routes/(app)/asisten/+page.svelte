@@ -1,25 +1,39 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { transactions, customCategories, budgets } from '$lib/stores/data';
+  import { session } from '$lib/stores/session';
+  import { getCatList, type Cat } from '$lib/data/categories';
+  import { getBudgetMonth } from '$lib/data/budget';
+  import {
+    getAverageSpendingByCategory,
+    findSalaryTransaction,
+    getExistingBudget
+  } from '$lib/data/analytics';
+  import { askAssistant, isAssistantConfigured, type ChatTurn, type ProposeBudgetArgs } from '$lib/ai/assistant';
+  import { upsertRecord } from '$lib/db/repo';
+  import { showToast } from '$lib/stores/toast';
+  import BudgetProposalCard from '$lib/components/BudgetProposalCard.svelte';
 
   interface ChatMessage {
     id: number;
     role: 'user' | 'assistant';
     text: string;
+    action?: { type: 'propose_budget'; args: ProposeBudgetArgs; applied: boolean };
   }
 
   let messages: ChatMessage[] = [];
   let draft = '';
   let counter = 0;
+  let sending = false;
 
-  // NOT the same as "disable everything when offline" like the OCR
-  // button — by design, once the real backend exists, plenty of
-  // questions ("berapa pengeluaran bulan ini?", "budget makanan
-  // berapa?") can be answered purely from what's already mirrored in
-  // Dexie, with zero network/AI call needed. Only requests that
-  // genuinely need Gemini (open-ended analysis, generating a new
-  // budget draft) should require being online. This page never fully
-  // locks the input for that reason — it's tracked here so that logic
-  // has an obvious place to plug into later.
+  const assistantConfigured = isAssistantConfigured();
+
+  // Same reasoning as TxSheet's OCR button: only the parts that
+  // genuinely need Gemini require being online. This page never locks
+  // the input for that reason. There's no local-only fallback wired up
+  // yet (that's a later phase), but the online tracker stays so that
+  // logic has an obvious place to plug in without touching the rest of
+  // this page.
   let online = typeof navigator !== 'undefined' ? navigator.onLine : true;
   onMount(() => {
     const goOnline = () => (online = true);
@@ -38,21 +52,106 @@
     'Kenapa pengeluaran gue naik?'
   ];
 
-  function send(text?: string) {
+  $: expenseCats = getCatList('expense', $customCategories.filter((c) => c.type === 'expense') as unknown as Cat[]);
+
+  // History sent to the Worker each turn — kept as plain text turns
+  // (not persisted anywhere, resets on page leave per the "sementara"
+  // decision). An action message is represented by its reasoning +
+  // allocations so the model still remembers what it already proposed
+  // if the person asks to adjust it ("tabungan minimal 500rb").
+  function toApiHistory(msgs: ChatMessage[]): ChatTurn[] {
+    return msgs.map((m) => ({
+      role: m.role,
+      text: m.action
+        ? `Usulan budget ${m.action.args.month}: ${m.action.args.allocations
+            .map((a) => `${a.category_id}=Rp${a.amount}`)
+            .join(', ')}. Alasan: ${m.action.args.reasoning}`
+        : m.text
+    }));
+  }
+
+  async function send(text?: string) {
     const value = (text ?? draft).trim();
-    if (!value) return;
+    if (!value || sending) return;
+    const token = $session?.access_token;
+    if (!token) {
+      showToast('Sesi login tidak ditemukan, coba login ulang', 'error');
+      return;
+    }
+
+    const history = toApiHistory(messages);
     messages = [...messages, { id: ++counter, role: 'user', text: value }];
     draft = '';
+    sending = true;
 
-    // Placeholder reply only — no Worker/Gemini call wired up yet.
-    // Kept here (rather than a static banner) so the eventual real
-    // reply just replaces this one function's body.
-    const reply = online
-      ? '🚧 Asisten AI masih dalam pengembangan. Nanti di sini bisa tanya-jawab soal keuanganmu dan bikinin usulan budget otomatis — tunggu update berikutnya!'
-      : '🚧 Asisten AI masih dalam pengembangan. Kamu lagi offline — nanti pertanyaan yang cukup dijawab dari data di HP (misalnya rekap pengeluaran) tetap bisa jalan offline, cuma analisa/usulan dari AI yang perlu online.';
-    setTimeout(() => {
-      messages = [...messages, { id: ++counter, role: 'assistant', text: reply }];
-    }, 300);
+    try {
+      const month = getBudgetMonth();
+      const result = await askAssistant(
+        value,
+        history,
+        {
+          current_month: month,
+          categories: expenseCats.map((c) => ({ id: c.id, name: c.name })),
+          salary_transaction: findSalaryTransaction($transactions, month),
+          avg_spending_last_3mo: getAverageSpendingByCategory($transactions, 3),
+          existing_budget_this_month: getExistingBudget($budgets, month)
+        },
+        token
+      );
+
+      if (result.type === 'action' && result.action === 'propose_budget') {
+        messages = [
+          ...messages,
+          {
+            id: ++counter,
+            role: 'assistant',
+            text: '',
+            action: { type: 'propose_budget', args: result.args, applied: false }
+          }
+        ];
+      } else if (result.type === 'text') {
+        messages = [...messages, { id: ++counter, role: 'assistant', text: result.text }];
+      }
+    } catch (err) {
+      const errText = err instanceof Error ? err.message : 'Asisten lagi nggak bisa diakses, coba lagi nanti';
+      messages = [...messages, { id: ++counter, role: 'assistant', text: `⚠️ ${errText}` }];
+    } finally {
+      sending = false;
+    }
+  }
+
+  async function applyBudget(messageId: number, allocations: Array<{ category_id: string; amount: number }>) {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg?.action) return;
+    const month = msg.action.args.month;
+    try {
+      for (const alloc of allocations) {
+        // Reuse the existing row's id when this category already has a
+        // budget for this month (→ update), otherwise let upsertRecord
+        // generate a new one (→ insert). `budgets` has a
+        // unique(user_id, cat_id, month) constraint — guessing wrong
+        // here is exactly the kind of bug that caused the sync issues
+        // fixed earlier, so this mirrors BudgetSheet.svelte's own logic
+        // rather than reinventing it.
+        const existing = $budgets.find((b) => b.month === month && b.cat_id === alloc.category_id);
+        await upsertRecord('budgets', {
+          id: existing?.id,
+          cat_id: alloc.category_id,
+          limit_amount: alloc.amount,
+          month
+        });
+      }
+      messages = messages.map((m) =>
+        m.id === messageId && m.action ? { ...m, action: { ...m.action, applied: true } } : m
+      );
+      showToast('Budget diterapkan');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menerapkan budget', 'error');
+    }
+  }
+
+  function dismissBudget(messageId: number) {
+    messages = messages.filter((m) => m.id !== messageId);
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -65,7 +164,15 @@
 
 <div class="flex flex-col h-[calc(100vh-3.5rem-6rem)] max-w-md mx-auto">
   <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-    {#if messages.length === 0}
+    {#if !assistantConfigured}
+      <div class="flex-1 flex flex-col items-center justify-center text-center gap-2 py-10">
+        <p class="text-sm font-semibold text-txt-primary">Asisten AI belum dikonfigurasi</p>
+        <p class="text-xs text-txt-secondary max-w-[260px]">
+          Set <code class="text-[10px]">PUBLIC_AI_WORKER_URL</code> di <code class="text-[10px]">.env</code> supaya fitur
+          ini aktif.
+        </p>
+      </div>
+    {:else if messages.length === 0}
       <div class="flex-1 flex flex-col items-center justify-center text-center gap-3 py-10">
         <div
           class="w-14 h-14 rounded-2xl flex items-center justify-center"
@@ -83,8 +190,7 @@
         </div>
         <p class="text-sm font-semibold text-txt-primary">Asisten AI</p>
         <p class="text-xs text-txt-secondary max-w-[260px]">
-          Masih dalam pengembangan. Nanti kamu bisa tanya soal keuanganmu, minta dibuatkan budget bulanan,
-          sampai analisa pengeluaran — cukup ketik kayak ngobrol biasa.
+          Tanya soal keuanganmu, atau minta dibuatkan budget bulanan — cukup ketik kayak ngobrol biasa.
         </p>
         <div class="flex flex-col gap-2 w-full mt-2">
           {#each SUGGESTIONS as s}
@@ -100,22 +206,40 @@
     {:else}
       {#each messages as m (m.id)}
         <div class="flex {m.role === 'user' ? 'justify-end' : 'justify-start'}">
-          <div
-            class="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm {m.role === 'user'
-              ? 'text-white rounded-br-sm'
-              : 'bg-base-card border border-border text-txt-primary rounded-bl-sm'}"
-            style={m.role === 'user' ? 'background: var(--primary)' : ''}
-          >
-            {m.text}
-          </div>
+          {#if m.action?.type === 'propose_budget'}
+            <BudgetProposalCard
+              args={m.action.args}
+              categories={$customCategories.filter((c) => c.type === 'expense') as unknown as Cat[]}
+              availableIncome={null}
+              applied={m.action.applied}
+              onApply={(allocations) => applyBudget(m.id, allocations)}
+              onDismiss={() => dismissBudget(m.id)}
+            />
+          {:else}
+            <div
+              class="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm {m.role === 'user'
+                ? 'text-white rounded-br-sm'
+                : 'bg-base-card border border-border text-txt-primary rounded-bl-sm'}"
+              style={m.role === 'user' ? 'background: var(--primary)' : ''}
+            >
+              {m.text}
+            </div>
+          {/if}
         </div>
       {/each}
+      {#if sending}
+        <div class="flex justify-start">
+          <div class="bg-base-card border border-border rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm text-txt-muted">
+            Mengetik…
+          </div>
+        </div>
+      {/if}
     {/if}
   </div>
 
   {#if !online}
     <p class="px-4 pb-1 text-[10px] text-center" style="color: var(--warn)">
-      Sedang offline — pertanyaan yang butuh AI (analisa, bikin budget) baru bisa dijawab setelah online lagi.
+      Sedang offline — asisten butuh koneksi buat menjawab.
     </p>
   {/if}
 
@@ -125,11 +249,12 @@
       on:keydown={onKeydown}
       rows="1"
       placeholder="Tanya sesuatu…"
-      class="flex-1 resize-none rounded-lg bg-base-input border border-border px-3.5 py-2.5 text-sm text-txt-primary max-h-24"
+      disabled={!assistantConfigured || sending}
+      class="flex-1 resize-none rounded-lg bg-base-input border border-border px-3.5 py-2.5 text-sm text-txt-primary max-h-24 disabled:opacity-60"
     ></textarea>
     <button
       on:click={() => send()}
-      disabled={!draft.trim()}
+      disabled={!draft.trim() || !assistantConfigured || sending || !online}
       aria-label="Kirim"
       class="w-10 h-10 shrink-0 rounded-lg flex items-center justify-center text-white disabled:opacity-40"
       style="background: var(--primary)"

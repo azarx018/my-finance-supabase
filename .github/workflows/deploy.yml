@@ -11,11 +11,11 @@ on:
 
 jobs:
   deploy-worker:
-    name: Deploy Cloudflare Worker (scan-receipt)
+    name: Deploy Cloudflare Worker (ai-worker)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: cloudflare/scan-receipt
+        working-directory: cloudflare/ai-worker
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +33,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: cloudflare/scan-receipt
+          workingDirectory: cloudflare/ai-worker
           secrets: |
             GEMINI_API_KEY
         env:

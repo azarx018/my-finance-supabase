@@ -42,7 +42,7 @@ Not a GitHub secret — set this directly in the Vercel dashboard
 2. Push to `main` (or run the workflow manually from the **Actions**
    tab → "Deploy Cloudflare Worker" → **Run workflow**).
 3. The job finishes and prints the Worker's URL in its logs (look for
-   `Published myfinance-scan-receipt` → the `*.workers.dev` line right
+   `Published myfinance-ai-worker` → the `*.workers.dev` line right
    after it).
 4. Add that URL as `PUBLIC_SCAN_RECEIPT_URL` in Vercel's dashboard.
 5. Trigger a Vercel redeploy (push a commit, or use "Redeploy" in the

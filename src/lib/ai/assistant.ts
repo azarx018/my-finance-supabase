@@ -1,0 +1,62 @@
+import { PUBLIC_AI_WORKER_URL } from '$env/static/public';
+
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export interface ProposeBudgetArgs {
+  month: string;
+  reasoning: string;
+  allocations: Array<{ category_id: string; amount: number }>;
+}
+
+export type AssistantResponse =
+  | { type: 'text'; text: string }
+  | { type: 'action'; action: 'propose_budget'; args: ProposeBudgetArgs };
+
+export interface AssistantContext {
+  current_month: string;
+  categories: Array<{ id: string; name: string }>;
+  salary_transaction: { amount: number; date: string } | null;
+  avg_spending_last_3mo: Record<string, number>;
+  existing_budget_this_month: Record<string, number>;
+}
+
+export function isAssistantConfigured(): boolean {
+  return Boolean(PUBLIC_AI_WORKER_URL);
+}
+
+/**
+ * Sends the latest message + prior turns (session-only, never persisted
+ * — see the "Fase B/C" design discussion) plus locally-computed context
+ * (never raw transactions — see analytics.ts's
+ * getAverageSpendingByCategory/findSalaryTransaction/getExistingBudget)
+ * to the Worker's /assistant endpoint.
+ */
+export async function askAssistant(
+  message: string,
+  history: ChatTurn[],
+  context: AssistantContext,
+  accessToken: string
+): Promise<AssistantResponse> {
+  if (!PUBLIC_AI_WORKER_URL) {
+    throw new Error('Asisten AI belum dikonfigurasi (PUBLIC_AI_WORKER_URL kosong)');
+  }
+
+  const res = await fetch(`${PUBLIC_AI_WORKER_URL}/assistant`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ message, history, ...context })
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Asisten gagal merespons (${res.status})`);
+  }
+
+  return res.json();
+}

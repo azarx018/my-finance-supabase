@@ -1,0 +1,26 @@
+name = "myfinance-ai-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Non-secret config — safe to commit. Only the Gemini key is a real
+# secret; it's set separately with `wrangler secret put GEMINI_API_KEY`,
+# never written here. See README.md.
+[vars]
+# CORS allow-list: only your app's own origin(s) may call this Worker.
+# Add your production domain here once you have one, comma-separated.
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://my-finance-newstyle.vercel.app"
+# Same value as your app's PUBLIC_SUPABASE_URL — not secret (it's the
+# same project URL your anon key already points to client-side). Used
+# to build the JWKS endpoint for verifying login tokens.
+SUPABASE_URL = "https://fwvsjtopghzmubhzlyae.supabase.co"
+
+# 🔧 ROTASI MODEL GEMINI — EDIT DI SINI buat ganti/nambah/urutin ulang
+# model yang dicoba. Dipisah koma, urutan = urutan coba. Kuota gratis
+# Gemini dihitung TERPISAH per model, jadi kalau model pertama kena
+# limit harian (HTTP 429), Worker otomatis lanjut ke model berikutnya
+# di daftar ini — nggak langsung gagal. Kosongkan var ini untuk pakai
+# daftar bawaan di cloudflare/ai-worker/src/shared/gemini.ts.
+# Hanya masukkan model yang MENDUKUNG function calling (dipakai fitur
+# Asisten AI) — per Agustus 2026: gemini-2.5-flash, gemini-2.0-flash,
+# gemini-3.1-flash-lite sudah dikonfirmasi mendukung.
+GEMINI_MODELS = "gemini-2.5-flash,gemini-2.0-flash,gemini-3.1-flash-lite"

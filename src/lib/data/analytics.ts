@@ -165,3 +165,70 @@ export function getAvgMonthly(transactions: SyncableRecord[], type: 'income' | '
   if (!list.length) return 0;
   return Math.round(list.reduce((s, t) => s + (t.amount as number), 0) / months.size);
 }
+
+/**
+ * Average monthly EXPENSE per category over the last `n` months —
+ * context for the AI Assistant's budget suggestions (see
+ * `cloudflare/ai-worker/src/assistant.ts`). Divides by `n` (not by
+ * how many of those months actually had spending), same convention as
+ * `getAvgMonthly` above, so a category the person only spent on twice in
+ * 3 months correctly averages lower rather than inflating to "2-month
+ * average" and overstating how much they usually spend on it.
+ */
+export function getAverageSpendingByCategory(transactions: SyncableRecord[], n = 3): Record<string, number> {
+  const months = new Set<string>();
+  for (let i = 0; i < n; i++) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  const totals: Record<string, number> = {};
+  transactions
+    .filter((t) => t.type === 'expense' && months.has((t.date as string).slice(0, 7)))
+    .forEach((t) => {
+      const catId = (t.cat_id as string) || 'other_exp';
+      totals[catId] = (totals[catId] || 0) + (t.amount as number);
+    });
+  const averages: Record<string, number> = {};
+  for (const [catId, total] of Object.entries(totals)) {
+    averages[catId] = Math.round(total / n);
+  }
+  return averages;
+}
+
+export interface SalaryTransactionInfo {
+  amount: number;
+  date: string; // YYYY-MM-DD
+}
+
+/**
+ * Finds the most recent income transaction tagged with the built-in
+ * "Gaji" category (see categories.ts — `id: 'salary'`), preferring one
+ * from `month` but falling back to the single most recent one overall
+ * (e.g. asked before this month's payday has landed yet). Returns null
+ * if there's no salary-tagged income at all, in which case the
+ * Assistant is instructed to ask the person directly rather than guess
+ * — see the system prompt in assistant.ts.
+ */
+export function findSalaryTransaction(transactions: SyncableRecord[], month: string): SalaryTransactionInfo | null {
+  const salaryTxs = transactions
+    .filter((t) => t.type === 'income' && t.cat_id === 'salary')
+    .sort((a, b) => (b.date as string).localeCompare(a.date as string));
+  if (!salaryTxs.length) return null;
+
+  const thisMonth = salaryTxs.find((t) => (t.date as string).startsWith(month));
+  const chosen = thisMonth ?? salaryTxs[0];
+  return { amount: chosen.amount as number, date: chosen.date as string };
+}
+
+/** Existing budget allocations for `month` — { cat_id: limit_amount }. */
+export function getExistingBudget(budgets: SyncableRecord[], month: string): Record<string, number> {
+  const result: Record<string, number> = {};
+  budgets
+    .filter((b) => b.month === month)
+    .forEach((b) => {
+      result[b.cat_id as string] = b.limit_amount as number;
+    });
+  return result;
+}
