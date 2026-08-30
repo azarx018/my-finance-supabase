@@ -153,6 +153,7 @@ Aturan HARUS diikuti:
 
 - "description": ringkasan barang atau jasa yang dibeli.
   Contoh: "Indomie, telur, kecap", "Isi bensin Pertamax", atau "Token listrik".
+  Jika ada lebih dari 3 produk belanjaan bikin menjadi 1 rangkuman, misal ada "nasi goreng, ayam geprek, tempe, tahu" jadi "beli makanan".
   JANGAN isi dengan nama toko.
   Jika daftar item tidak terbaca jelas, gunakan "".
   Jangan menggunakan generic seperti "Belanja" jika isi struk tidak diketahui.
