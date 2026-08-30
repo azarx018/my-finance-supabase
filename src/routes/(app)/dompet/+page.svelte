@@ -5,10 +5,12 @@
   import { formatRpC } from '$lib/data/format';
   import { fabHandler } from '$lib/stores/fab';
   import WalletSheet from '$lib/components/WalletSheet.svelte';
+  import TransferSheet from '$lib/components/TransferSheet.svelte';
   import type { SyncableRecord } from '$lib/db/dexie';
 
   let sheetOpen = false;
   let editing: SyncableRecord | null = null;
+  let transferOpen = false;
 
   function openAdd() {
     editing = null;
@@ -17,6 +19,9 @@
   function openEdit(w: SyncableRecord) {
     editing = w;
     sheetOpen = true;
+  }
+  function openTransfer() {
+    transferOpen = true;
   }
 
   onMount(() => fabHandler.set(openAdd));
@@ -30,6 +35,16 @@
     <p class="text-xs text-txt-secondary text-center py-16">
       Belum ada dompet. Tap tombol + di kanan bawah untuk menambah.
     </p>
+  {/if}
+
+  {#if $wallets.length >= 2}
+    <button
+      on:click={openTransfer}
+      class="w-full text-sm font-medium py-2.5 rounded-lg border flex items-center justify-center gap-2"
+      style="border-color: var(--primary); color: var(--primary)"
+    >
+      🔁 Transfer Antar Dompet
+    </button>
   {/if}
 
   {#each $wallets as w (w.id)}
@@ -53,3 +68,4 @@
 </div>
 
 <WalletSheet open={sheetOpen} {editing} walletCount={$wallets.length} onClose={() => (sheetOpen = false)} />
+<TransferSheet open={transferOpen} editing={null} onClose={() => (transferOpen = false)} />

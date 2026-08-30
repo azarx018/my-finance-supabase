@@ -325,35 +325,56 @@
           Memuat…
         </div>
       {:else}
-        <label
-          class="flex flex-col items-center justify-center w-24 h-24 rounded-lg border border-dashed border-border text-txt-muted cursor-pointer"
-          class:opacity-60={photoProcessing}
-        >
-          {#if photoProcessing}
-            <span class="text-[10px]">Memproses…</span>
-          {:else}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 mb-1">
-              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            <span class="text-[10px]">Tambah Foto</span>
-          {/if}
-          <!--
-            BUGFIX: `capture="environment"` forces most mobile browsers to
-            jump straight into the camera app, skipping the normal
-            camera-vs-gallery chooser entirely — so there was never any
-            way to attach an existing photo, only a freshly taken one.
-            Dropping `capture` lets the OS show its native picker (camera
-            AND gallery/files), which is what "Tambah Foto" should offer.
-          -->
-          <input
-            type="file"
-            accept="image/*"
-            class="hidden"
-            disabled={photoProcessing}
-            on:change={onPhotoSelected}
-          />
-        </label>
+        <div class="flex gap-2">
+          <label
+            class="flex flex-col items-center justify-center w-24 h-24 rounded-lg border border-dashed border-border text-txt-muted cursor-pointer"
+            class:opacity-60={photoProcessing}
+          >
+            {#if photoProcessing}
+              <span class="text-[10px]">Memproses…</span>
+            {:else}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 mb-1">
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              <span class="text-[10px]">Kamera</span>
+            {/if}
+            <!-- `capture="environment"` is what forces this specific
+                 input straight into the camera app, skipping any picker. -->
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              class="hidden"
+              disabled={photoProcessing}
+              on:change={onPhotoSelected}
+            />
+          </label>
+          <label
+            class="flex flex-col items-center justify-center w-24 h-24 rounded-lg border border-dashed border-border text-txt-muted cursor-pointer"
+            class:opacity-60={photoProcessing}
+          >
+            {#if photoProcessing}
+              <span class="text-[10px]">Memproses…</span>
+            {:else}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 mb-1">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              <span class="text-[10px]">Galeri</span>
+            {/if}
+            <!-- No `capture` attribute here — lets the OS show its normal
+                 file/gallery picker instead of jumping into the camera. -->
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              disabled={photoProcessing}
+              on:change={onPhotoSelected}
+            />
+          </label>
+        </div>
       {/if}
       <p class="text-[10px] text-txt-muted mt-1">
         Foto otomatis dikompres (WebP) supaya hemat kuota & penyimpanan. Bisa tetap dilampirkan

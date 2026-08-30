@@ -33,14 +33,27 @@
   $: savings = totals.income - totals.expense;
   $: savRate = totals.income > 0 ? Math.round((savings / totals.income) * 100) : 0;
 
-  // Includes debt_transfer/saving_transfer too — cash moving in/out from
-  // paying off a debt or tapping a savings bucket is still real activity
-  // in the wallet and belongs in "Transaksi Terbaru", not just plain
-  // income/expense. getDisplayType() gives each the correct +/- reading.
+  // Includes debt_transfer/saving_transfer/transfer too — cash moving
+  // in/out from paying off a debt, tapping a savings bucket, or moving
+  // between your own wallets is still real activity and belongs in
+  // "Transaksi Terbaru", not just plain income/expense. getDisplayType()
+  // gives income/expense the correct +/- reading; transfer is rendered
+  // neutrally below since it's neither a gain nor a loss.
   $: recent = [...$transactions]
-    .filter((t) => t.type === 'income' || t.type === 'expense' || t.type === 'debt_transfer' || t.type === 'saving_transfer')
+    .filter(
+      (t) =>
+        t.type === 'income' ||
+        t.type === 'expense' ||
+        t.type === 'debt_transfer' ||
+        t.type === 'saving_transfer' ||
+        t.type === 'transfer'
+    )
     .sort((a, b) => (b.date as string).localeCompare(a.date as string) || b.id.localeCompare(a.id))
     .slice(0, 5);
+
+  function walletOf(id: string) {
+    return $wallets.find((w) => w.id === id);
+  }
 
   function catOf(t: SyncableRecord) {
     const dt = getDisplayType(t);
@@ -122,15 +135,24 @@
       {#each recent as t (t.id)}
         {@const cat = catOf(t)}
         {@const dt = getDisplayType(t)}
+        {@const isTransfer = t.type === 'transfer'}
         <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border">
-          <span class="text-xl">{cat?.emoji ?? '💸'}</span>
+          <span class="text-xl">{isTransfer ? '🔁' : cat?.emoji ?? '💸'}</span>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-txt-primary truncate">{t.description}</p>
+            <p class="text-sm font-medium text-txt-primary truncate">
+              {isTransfer
+                ? `${walletOf(t.wallet_id as string)?.name ?? ''} → ${walletOf(t.to_wallet_id as string)?.name ?? ''}`
+                : t.description}
+            </p>
             <p class="text-xs text-txt-secondary">{formatDateShort(t.date as string)}</p>
           </div>
-          <p class="text-sm font-semibold shrink-0" style="color: {dt === 'income' ? 'var(--income)' : 'var(--expense)'}">
-            {dt === 'income' ? '+' : '-'}{formatRpC(t.amount as number)}
-          </p>
+          {#if isTransfer}
+            <p class="text-sm font-semibold shrink-0 text-txt-secondary">{formatRpC(t.amount as number)}</p>
+          {:else}
+            <p class="text-sm font-semibold shrink-0" style="color: {dt === 'income' ? 'var(--income)' : 'var(--expense)'}">
+              {dt === 'income' ? '+' : '-'}{formatRpC(t.amount as number)}
+            </p>
+          {/if}
         </div>
       {/each}
     </div>

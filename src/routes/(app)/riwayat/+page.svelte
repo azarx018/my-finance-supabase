@@ -6,12 +6,15 @@
   import { formatRp, formatDateShort } from '$lib/data/format';
   import { fabHandler } from '$lib/stores/fab';
   import TxSheet from '$lib/components/TxSheet.svelte';
+  import TransferSheet from '$lib/components/TransferSheet.svelte';
   import type { SyncableRecord } from '$lib/db/dexie';
 
   let sheetOpen = false;
+  let transferSheetOpen = false;
   let editing: SyncableRecord | null = null;
+  let editingTransfer: SyncableRecord | null = null;
   let search = '';
-  let typeF: 'all' | 'income' | 'expense' = 'all';
+  let typeF: 'all' | 'income' | 'expense' | 'transfer' = 'all';
   let dateF: DateFilter = 'all';
 
   function openAdd() {
@@ -20,6 +23,11 @@
   }
   function openEdit(t: SyncableRecord) {
     if (t.type === 'saving_transfer' || t.type === 'debt_transfer') return;
+    if (t.type === 'transfer') {
+      editingTransfer = t;
+      transferSheetOpen = true;
+      return;
+    }
     editing = t;
     sheetOpen = true;
   }
@@ -54,6 +62,7 @@
       <option value="all">Semua Tipe</option>
       <option value="income">Pemasukan</option>
       <option value="expense">Pengeluaran</option>
+      <option value="transfer">Transfer</option>
     </select>
     <select
       bind:value={dateF}
@@ -76,7 +85,23 @@
     {@const w = walletOf(t.wallet_id as string)}
     {@const dt = getDisplayType(t)}
     {@const isLinked = t.type === 'saving_transfer' || t.type === 'debt_transfer'}
-    {#if isLinked}
+    {@const isTransfer = t.type === 'transfer'}
+    {#if isTransfer}
+      {@const toW = walletOf(t.to_wallet_id as string)}
+      <button
+        on:click={() => openEdit(t)}
+        class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left"
+      >
+        <span class="text-xl">🔁</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-txt-primary truncate">
+            {w?.emoji ?? ''} {w?.name ?? ''} → {toW?.emoji ?? ''} {toW?.name ?? ''}
+          </p>
+          <p class="text-xs text-txt-secondary truncate">{formatDateShort(t.date as string)}</p>
+        </div>
+        <p class="text-sm font-semibold shrink-0 text-txt-secondary">{formatRp(t.amount as number)}</p>
+      </button>
+    {:else if isLinked}
       <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left">
         <span class="text-xl">{cat?.emoji ?? '💸'}</span>
         <div class="flex-1 min-w-0">
@@ -111,3 +136,4 @@
 </div>
 
 <TxSheet open={sheetOpen} {editing} onClose={() => (sheetOpen = false)} />
+<TransferSheet open={transferSheetOpen} editing={editingTransfer} onClose={() => (transferSheetOpen = false)} />
