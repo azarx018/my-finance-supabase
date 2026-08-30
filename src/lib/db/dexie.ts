@@ -23,6 +23,24 @@ export interface QueueEntry {
   ts: number;
 }
 
+// Where a queue entry lands after `flushQueue` gives up on it because
+// Postgres rejected it for a reason retrying can never fix (bad FK,
+// unique violation, etc — see sync/engine.ts isPermanentError()). Without
+// this, that one entry sat at the front of `syncQueue` forever and
+// silently blocked every other mutation queued behind it, since the old
+// flushQueue() always stopped at the first failure with no way to skip
+// or discard it. Keeping the full original entry plus the error lets
+// Settings show *what* got stuck and *why*, instead of just a generic
+// "gagal sync" banner.
+export interface FailedQueueEntry {
+  fid?: number; // Dexie auto-increment primary key
+  table: SyncTable;
+  recordId: string;
+  payload: SyncableRecord;
+  error: string;
+  failedAt: number;
+}
+
 export interface SyncMeta {
   table: SyncTable; // primary key
   lastPulledAt: string; // ISO string checkpoint for incremental pulls
@@ -73,6 +91,7 @@ class MyFinanceDB extends Dexie {
   reminders!: Table<SyncableRecord, string>;
   transactions!: Table<SyncableRecord, string>;
   syncQueue!: Table<QueueEntry, number>;
+  failedQueue!: Table<FailedQueueEntry, number>;
   syncMeta!: Table<SyncMeta, string>;
   pendingPhotoUploads!: Table<PendingPhotoUpload, number>;
 
@@ -111,6 +130,14 @@ class MyFinanceDB extends Dexie {
     // v3: receipt-photo upload queue (see PendingPhotoUpload above).
     this.version(3).stores({
       pendingPhotoUploads: '++id, transactionId, userId, createdAt'
+    });
+
+    // v4: dead-letter queue for permanently-failed pushes (see
+    // FailedQueueEntry above) — lets flushQueue() evict a poisoned entry
+    // instead of retrying it forever and blocking everything queued
+    // behind it.
+    this.version(4).stores({
+      failedQueue: '++fid, table, recordId, failedAt'
     });
   }
 }

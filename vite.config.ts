@@ -71,7 +71,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#0a0a0f',
-        theme_color: '#22c55e',
+        theme_color: '#ffffff',
         lang: 'id',
         categories: ['finance', 'productivity', 'utilities'],
         // BUGFIX: this manifest previously declared only one SVG file

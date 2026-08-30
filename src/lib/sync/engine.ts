@@ -16,12 +16,55 @@ let onlineListenerAttached = false;
 // for weeks while it silently never left the device.
 export const lastSyncError = writable<string | null>(null);
 export const lastSyncedAt = writable<string | null>(null);
+// Reactive count of entries moved to the dead-letter queue, for a badge
+// in Settings — see FailedQueueEntry in db/dexie.ts for why this exists.
+export const failedCount = writable<number>(0);
+
+async function refreshFailedCount(): Promise<void> {
+  failedCount.set(await db.failedQueue.count());
+}
+
+// Postgres error codes that mean "this exact payload will NEVER succeed,
+// no matter how many times it's retried" — as opposed to a dropped
+// connection, a timeout, or a temporary RLS/auth hiccup, which SHOULD
+// keep retrying. Retrying one of these forever is exactly what used to
+// let a single bad row (e.g. a transaction whose wallet_id pointed at a
+// wallet that doesn't exist — see importJSON's old bug) jam the entire
+// queue permanently.
+//   23503 foreign_key_violation   23505 unique_violation
+//   23514 check_violation         22P02 invalid_text_representation
+//   23502 not_null_violation      42501 insufficient_privilege (RLS)
+const PERMANENT_ERROR_CODES = new Set([
+  '23503',
+  '23505',
+  '23514',
+  '22P02',
+  '23502',
+  '42501'
+]);
+
+function isPermanentError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code && PERMANENT_ERROR_CODES.has(error.code)) return true;
+  // supabase-js sometimes surfaces the code only inside the message for
+  // older client versions — fall back to matching the constraint wording
+  // Postgres itself uses, so this still catches it either way.
+  const msg = error.message ?? '';
+  return /violates foreign key constraint|violates check constraint|violates not-null constraint|duplicate key value/i.test(
+    msg
+  );
+}
 
 /**
  * PUSH — drain the local mutation queue to Supabase, in the order
- * mutations were made. Stops (rather than skips) at the first failure so
- * a transient network drop can't push entry #5 before entry #3, which
- * would let last-write-wins pick the wrong winner on another device.
+ * mutations were made. Stops (rather than skips) at the first
+ * *transient* failure so a dropped connection can't push entry #5 before
+ * entry #3, which would let last-write-wins pick the wrong winner on
+ * another device. A *permanent* failure (the payload itself is invalid —
+ * see isPermanentError above) is evicted to the dead-letter queue
+ * instead: retrying it would never succeed, and leaving it at the front
+ * would otherwise block every legitimate mutation queued behind it
+ * forever.
  */
 export async function flushQueue(): Promise<void> {
   if (flushing) return; // never run two drains concurrently
@@ -33,9 +76,28 @@ export async function flushQueue(): Promise<void> {
       try {
         const { error } = await supabase.from(entry.table).upsert(entry.payload);
         if (error) {
+          if (isPermanentError(error)) {
+            console.warn(
+              `[sync] permanent failure for ${entry.table}/${entry.recordId}, moving to dead-letter queue:`,
+              error.message
+            );
+            await db.failedQueue.add({
+              table: entry.table,
+              recordId: entry.recordId,
+              payload: entry.payload,
+              error: error.message,
+              failedAt: Date.now()
+            });
+            await db.syncQueue.delete(entry.qid!);
+            await refreshFailedCount();
+            lastSyncError.set(
+              `${entry.table}/${entry.recordId} dilewati (lihat "Data gagal sync" di Pengaturan): ${error.message}`
+            );
+            continue; // keep draining the rest of the queue
+          }
           console.warn(`[sync] push failed for ${entry.table}/${entry.recordId}:`, error.message);
           lastSyncError.set(`Gagal kirim ${entry.table}: ${error.message}`);
-          break; // preserve order — retry this same entry first next time
+          break; // transient — preserve order, retry this same entry first next time
         }
         await db.syncQueue.delete(entry.qid!);
         lastSyncError.set(null);
@@ -48,6 +110,36 @@ export async function flushQueue(): Promise<void> {
   } finally {
     flushing = false;
   }
+}
+
+/** Discard one dead-lettered entry permanently (Settings "Buang" button). */
+export async function discardFailedEntry(fid: number): Promise<void> {
+  await db.failedQueue.delete(fid);
+  await refreshFailedCount();
+}
+
+/** Discard every dead-lettered entry (Settings "Buang semua" button). */
+export async function discardAllFailedEntries(): Promise<void> {
+  await db.failedQueue.clear();
+  await refreshFailedCount();
+}
+
+/**
+ * Put a dead-lettered entry back at the tail of the live queue — useful
+ * if the person fixed the underlying problem (e.g. re-created the wallet
+ * with the same id via another edit) and wants to retry it.
+ */
+export async function retryFailedEntry(fid: number): Promise<void> {
+  const entry = await db.failedQueue.get(fid);
+  if (!entry) return;
+  await db.syncQueue.add({
+    table: entry.table,
+    recordId: entry.recordId,
+    payload: entry.payload,
+    ts: Date.now()
+  });
+  await db.failedQueue.delete(fid);
+  await refreshFailedCount();
 }
 
 /**
@@ -130,6 +222,7 @@ export function unsubscribeRealtime(): void {
  * state), then flush anything queued while offline, then go live.
  */
 export async function startSync(userId: string): Promise<void> {
+  await refreshFailedCount();
   await pullAll(userId);
   await flushQueue();
   void flushPhotoQueue();

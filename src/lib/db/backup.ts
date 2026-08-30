@@ -55,7 +55,61 @@ export async function exportCSV(): Promise<void> {
 export interface ImportResult {
   counts: Record<string, number>;
   total: number;
+  sanitized: number; // rows whose dangling FK was nulled out instead of dropping the row
+  skipped: number; // rows dropped entirely (NOT NULL FK pointed nowhere)
 }
+
+// Fields from the ORIGINAL vanilla (pre-Supabase) app that never got
+// renamed to match this schema. Their mere presence — with the matching
+// snake_case field absent — is a reliable signature that the file
+// predates the Supabase migration, since a real export from this app
+// version would never contain them.
+const LEGACY_FIELD_MAP: Record<string, string> = {
+  walletId: 'wallet_id',
+  toWalletId: 'to_wallet_id',
+  catId: 'cat_id',
+  bucketId: 'bucket_id',
+  debtId: 'debt_id',
+  debtRef: 'debt_ref'
+};
+
+function looksLikeLegacyFormat(data: Record<string, unknown>): boolean {
+  for (const table of SYNC_TABLES as readonly SyncTable[]) {
+    const rows = data[table];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue;
+      for (const [legacyKey, modernKey] of Object.entries(LEGACY_FIELD_MAP)) {
+        if (legacyKey in row && !(modernKey in row)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Every FK column among the synced tables, and which table it points to.
+// `required: true` means the column is NOT NULL in Postgres (see
+// supabase/schema.sql) — a dangling reference there can't be repaired by
+// nulling it out, the whole row has to be dropped instead.
+const FK_COLUMNS: Partial<
+  Record<SyncTable, Array<{ field: string; refTable: SyncTable; required?: boolean }>>
+> = {
+  transactions: [
+    { field: 'wallet_id', refTable: 'wallets' },
+    { field: 'to_wallet_id', refTable: 'wallets' },
+    { field: 'bucket_id', refTable: 'saving_buckets' },
+    { field: 'debt_ref', refTable: 'debts' }
+  ],
+  saving_txs: [
+    { field: 'bucket_id', refTable: 'saving_buckets', required: true },
+    { field: 'wallet_id', refTable: 'wallets' }
+  ],
+  debts: [{ field: 'wallet_id', refTable: 'wallets' }],
+  debt_payments: [
+    { field: 'debt_id', refTable: 'debts', required: true },
+    { field: 'wallet_id', refTable: 'wallets' }
+  ]
+};
 
 /**
  * Imports a JSON backup produced by exportJSON() above.
@@ -72,10 +126,20 @@ export interface ImportResult {
  * clearly an intentional "put this back" action, not an accidental
  * resurrection.
  *
- * Known gap: only understands this app's own export format (snake_case
- * fields matching the Supabase schema). Importing a backup from the
- * original vanilla app (camelCase fields like `walletId`, `catId`) isn't
- * supported yet — the field names don't line up.
+ * BUGFIX: this used to blindly upsert + enqueue every row, with no check
+ * that a row's foreign key (wallet_id, bucket_id, debt_ref, ...) actually
+ * pointed at something real. Importing an old pre-Supabase backup (whose
+ * field names don't line up 1:1, e.g. `walletId` never mapped to
+ * `wallet_id`) or a hand-edited/partial file could queue a transaction
+ * referencing a wallet that was never created — and because the sync
+ * queue processes strictly in order and stops at the first failure, that
+ * ONE bad row was enough to silently block EVERY future sync forever,
+ * not just the bad import. Now: (1) an old-format file is rejected up
+ * front with a clear message instead of getting partially, silently
+ * mis-imported, and (2) every FK is checked against rows already local
+ * or earlier in this same import — a dangling *nullable* FK is cleared
+ * instead of left dangling, a dangling *required* FK causes that single
+ * row to be skipped, but the rest of the import still proceeds.
  */
 export async function importJSON(file: File): Promise<ImportResult> {
   const text = await file.text();
@@ -83,18 +147,62 @@ export async function importJSON(file: File): Promise<ImportResult> {
   if (Array.isArray(data)) {
     throw new Error('Format file tidak dikenali (backup array lama tidak didukung)');
   }
+  if (looksLikeLegacyFormat(data)) {
+    throw new Error(
+      'File ini berasal dari versi lama (sebelum sinkronisasi Supabase) dan formatnya tidak kompatibel. Backup dari versi ini tidak bisa diimpor.'
+    );
+  }
+
+  // Seed each referencable table's known-id set with what's already
+  // local, then grow it as we import — so a wallet imported earlier in
+  // this same file already counts as "exists" for a transaction imported
+  // right after it, without needing a live round-trip to Supabase.
+  const knownIds: Record<string, Set<string>> = {};
+  for (const table of SYNC_TABLES as readonly SyncTable[]) {
+    knownIds[table] = new Set((await db[table].toArray()).map((r) => r.id));
+  }
 
   const counts: Record<string, number> = {};
   let total = 0;
+  let sanitized = 0;
+  let skipped = 0;
+
   for (const table of SYNC_TABLES as readonly SyncTable[]) {
     const rows = data[table];
     if (!Array.isArray(rows)) continue;
+    const fkSpec = FK_COLUMNS[table];
+    let imported = 0;
+
     for (const row of rows) {
+      if (!row || typeof row !== 'object' || typeof row.id !== 'string') continue;
+
+      if (fkSpec) {
+        let dropRow = false;
+        for (const { field, refTable, required } of fkSpec) {
+          const value = row[field];
+          if (value == null) continue; // already null — nothing to check
+          if (knownIds[refTable].has(value)) continue; // valid reference
+
+          if (required) {
+            dropRow = true;
+            break;
+          }
+          row[field] = null; // nullable FK: repair instead of dropping the row
+          sanitized++;
+        }
+        if (dropRow) {
+          skipped++;
+          continue;
+        }
+      }
+
       await upsertRecord(table, row, { restore: true });
+      knownIds[table].add(row.id);
+      imported++;
       total++;
     }
-    counts[table] = rows.length;
+    counts[table] = imported;
   }
   if (total === 0) throw new Error('Tidak ada data yang bisa diimpor dari file ini');
-  return { counts, total };
+  return { counts, total, sanitized, skipped };
 }

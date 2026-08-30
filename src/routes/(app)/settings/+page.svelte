@@ -11,29 +11,62 @@
   import { wipeAllData, purgeAllDataPermanently } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import { canInstall, promptInstall } from '$lib/pwa/install';
-  import { flushQueue, pullAll, lastSyncError, lastSyncedAt } from '$lib/sync/engine';
+  import {
+    flushQueue,
+    pullAll,
+    lastSyncError,
+    lastSyncedAt,
+    discardFailedEntry,
+    discardAllFailedEntries,
+    retryFailedEntry
+  } from '$lib/sync/engine';
+  import type { FailedQueueEntry } from '$lib/db/dexie';
 
   function onToggleNotif() {
     scheduleNotif();
   }
 
   let pendingPush = 0;
+  let failedEntries: FailedQueueEntry[] = [];
   let online = typeof navigator !== 'undefined' ? navigator.onLine : true;
   let syncing = false;
 
   onMount(() => {
     if ($notifEnabled) scheduleNotif();
     const sub = liveQuery(() => db.syncQueue.count()).subscribe({ next: (v) => (pendingPush = v) });
+    const failedSub = liveQuery(() => db.failedQueue.orderBy('failedAt').reverse().toArray()).subscribe({
+      next: (v) => (failedEntries = v)
+    });
     const goOnline = () => (online = true);
     const goOffline = () => (online = false);
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
     return () => {
       sub.unsubscribe();
+      failedSub.unsubscribe();
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
   });
+
+  async function handleDiscardFailed(fid?: number) {
+    if (fid == null) return;
+    await discardFailedEntry(fid);
+    showToast('Entri dibuang');
+  }
+
+  async function handleRetryFailed(fid?: number) {
+    if (fid == null) return;
+    await retryFailedEntry(fid);
+    showToast('Dimasukkan ulang ke antrian, coba sinkron lagi');
+  }
+
+  async function handleDiscardAllFailed() {
+    if (!confirm(`Buang semua ${failedEntries.length} entri yang gagal sync? Tindakan ini tidak bisa dibatalkan.`))
+      return;
+    await discardAllFailedEntries();
+    showToast('Semua entri gagal dibuang');
+  }
 
   async function forceSyncNow() {
     const userId = getUserId();
@@ -84,7 +117,11 @@
     importing = true;
     try {
       const result = await importJSON(file);
-      showToast(`✅ ${result.total} data diimpor (digabung dengan data yang ada)`);
+      const extra: string[] = [];
+      if (result.sanitized > 0) extra.push(`${result.sanitized} relasi diperbaiki`);
+      if (result.skipped > 0) extra.push(`${result.skipped} baris dilewati (referensi hilang)`);
+      const suffix = extra.length > 0 ? ` — ${extra.join(', ')}` : '';
+      showToast(`✅ ${result.total} data diimpor (digabung dengan data yang ada)${suffix}`);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal impor', 'error');
     } finally {
@@ -177,6 +214,52 @@
       {/if}
     </div>
   </section>
+
+  {#if failedEntries.length > 0}
+    <section>
+      <h2 class="text-xs font-medium text-txt-secondary mb-3">Data Gagal Sync ({failedEntries.length})</h2>
+      <div class="bg-base-card rounded-xl shadow-sm border p-4 flex flex-col gap-3" style="border-color: var(--warn)">
+        <p class="text-xs text-txt-secondary">
+          Baris-baris ini ditolak server dan <b>tidak akan pernah berhasil</b> kalau dicoba ulang apa
+          adanya (misalnya nunjuk ke dompet/kantong yang sudah tidak ada) — jadi disisihkan di sini
+          supaya tidak menyumbat sinkronisasi data lain. Perbaiki datanya lalu tekan "Coba lagi",
+          atau buang kalau memang tidak dibutuhkan.
+        </p>
+        {#each failedEntries as entry (entry.fid)}
+          <div class="rounded-lg border border-border p-2.5 flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium text-txt-primary">{entry.table}</span>
+              <span class="text-[10px] text-txt-muted">{new Date(entry.failedAt).toLocaleString('id-ID')}</span>
+            </div>
+            <p class="text-[10px] text-txt-muted break-all">{entry.recordId}</p>
+            <p class="text-[10px]" style="color: var(--expense)">{entry.error}</p>
+            <div class="flex gap-2 mt-1">
+              <button
+                on:click={() => handleRetryFailed(entry.fid)}
+                class="flex-1 text-xs py-1.5 rounded-lg border border-border text-txt-primary"
+              >
+                🔄 Coba lagi
+              </button>
+              <button
+                on:click={() => handleDiscardFailed(entry.fid)}
+                class="flex-1 text-xs py-1.5 rounded-lg border"
+                style="color: var(--expense); border-color: var(--expense)"
+              >
+                🗑️ Buang
+              </button>
+            </div>
+          </div>
+        {/each}
+        <button
+          on:click={handleDiscardAllFailed}
+          class="w-full text-xs py-2 rounded-lg border"
+          style="color: var(--expense); border-color: var(--expense)"
+        >
+          Buang Semua ({failedEntries.length})
+        </button>
+      </div>
+    </section>
+  {/if}
 
   <section>
     <h2 class="text-xs font-medium text-txt-secondary mb-3">Tampilan</h2>

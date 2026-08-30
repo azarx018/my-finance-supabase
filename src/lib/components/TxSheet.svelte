@@ -338,10 +338,17 @@
             </svg>
             <span class="text-[10px]">Tambah Foto</span>
           {/if}
+          <!--
+            BUGFIX: `capture="environment"` forces most mobile browsers to
+            jump straight into the camera app, skipping the normal
+            camera-vs-gallery chooser entirely — so there was never any
+            way to attach an existing photo, only a freshly taken one.
+            Dropping `capture` lets the OS show its native picker (camera
+            AND gallery/files), which is what "Tambah Foto" should offer.
+          -->
           <input
             type="file"
             accept="image/*"
-            capture="environment"
             class="hidden"
             disabled={photoProcessing}
             on:change={onPhotoSelected}
