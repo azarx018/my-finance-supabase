@@ -1,21 +1,52 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { liveQuery } from 'dexie';
+  import { db } from '$lib/db/dexie';
   import ThemeSwitcher from '$lib/components/ThemeSwitcher.svelte';
   import { signOut } from '$lib/stores/auth';
+  import { getUserId } from '$lib/stores/session';
   import { notifEnabled, notifTime } from '$lib/stores/notif';
   import { scheduleNotif } from '$lib/notif/scheduler';
   import { exportJSON, exportCSV, importJSON } from '$lib/db/backup';
   import { wipeAllData, purgeAllDataPermanently } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import { canInstall, promptInstall } from '$lib/pwa/install';
+  import { flushQueue, pullAll, lastSyncError, lastSyncedAt } from '$lib/sync/engine';
 
   function onToggleNotif() {
     scheduleNotif();
   }
 
+  let pendingPush = 0;
+  let online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  let syncing = false;
+
   onMount(() => {
     if ($notifEnabled) scheduleNotif();
+    const sub = liveQuery(() => db.syncQueue.count()).subscribe({ next: (v) => (pendingPush = v) });
+    const goOnline = () => (online = true);
+    const goOffline = () => (online = false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      sub.unsubscribe();
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
   });
+
+  async function forceSyncNow() {
+    const userId = getUserId();
+    if (!userId) return;
+    syncing = true;
+    try {
+      await pullAll(userId);
+      await flushQueue();
+      if (!$lastSyncError) showToast('✅ Sinkronisasi berhasil');
+    } finally {
+      syncing = false;
+    }
+  }
 
   let importing = false;
   let fileInput: HTMLInputElement;
@@ -97,6 +128,56 @@
 </script>
 
 <div class="p-4 flex flex-col gap-6 max-w-md mx-auto">
+  <section>
+    <h2 class="text-xs font-medium text-txt-secondary mb-3">Status Sinkronisasi</h2>
+    <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-txt-primary">Koneksi</span>
+        <span
+          class="text-xs px-2 py-0.5 rounded-full font-medium"
+          style={online
+            ? 'background: var(--income-bg); color: var(--income)'
+            : 'background: var(--expense-bg); color: var(--expense)'}
+        >
+          {online ? 'Online' : 'Offline'}
+        </span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-txt-primary">Menunggu dikirim ke server</span>
+        <span
+          class="text-xs font-medium"
+          style={pendingPush > 0 ? 'color: var(--warn)' : 'color: var(--txt-secondary)'}
+        >
+          {pendingPush} item
+        </span>
+      </div>
+      {#if $lastSyncedAt}
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-txt-primary">Terakhir sinkron</span>
+          <span class="text-xs text-txt-secondary">{new Date($lastSyncedAt).toLocaleTimeString('id-ID')}</span>
+        </div>
+      {/if}
+      {#if $lastSyncError}
+        <p class="text-xs rounded-lg p-2 mt-1" style="background: var(--expense-bg); color: var(--expense)">
+          ⚠️ {$lastSyncError}
+        </p>
+      {/if}
+      <button
+        on:click={forceSyncNow}
+        disabled={syncing || !online}
+        class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary mt-1 disabled:opacity-40"
+      >
+        {syncing ? 'Menyinkronkan…' : '🔄 Sinkron Sekarang'}
+      </button>
+      {#if pendingPush > 0}
+        <p class="text-[10px] text-txt-muted">
+          Ada data yang belum sampai ke server — jangan hapus data browser (cookies/site data)
+          sebelum ini 0, atau data yang belum terkirim bisa hilang permanen.
+        </p>
+      {/if}
+    </div>
+  </section>
+
   <section>
     <h2 class="text-xs font-medium text-txt-secondary mb-3">Tampilan</h2>
     <ThemeSwitcher />
@@ -295,4 +376,5 @@
   </section>
 
   <p class="text-xs text-txt-muted text-center">My Finance · v{__APP_VERSION__}</p>
+  <p class="text-[10px] text-txt-muted text-center -mt-4">© 2026 Azar-Dev</p>
 </div>

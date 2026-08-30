@@ -1,12 +1,15 @@
 <script lang="ts">
   import BottomSheet from './BottomSheet.svelte';
   import CatPill from './CatPill.svelte';
+  import { onDestroy } from 'svelte';
   import { getCatList, type Cat } from '$lib/data/categories';
   import { parseAmt, todayStr, formatRpC } from '$lib/data/format';
-  import { upsertRecord, softDeleteRecord } from '$lib/db/repo';
+  import { upsertRecord, softDeleteRecord, newId } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import { wallets, customCategories, transactions } from '$lib/stores/data';
   import { computeWalletStats } from '$lib/data/wallets';
+  import { compressImage, type CompressedImage } from '$lib/media/compressImage';
+  import { queuePhotoUpload, getPhotoUrl, deletePhoto, hasPendingUpload } from '$lib/media/photoUpload';
   import type { SyncableRecord } from '$lib/db/dexie';
 
   export let open = false;
@@ -22,6 +25,18 @@
   let walletId = '';
   let wasOpen = false;
 
+  // Photo attachment state. Kept separate from the amount/desc/etc
+  // fields above because it has its own async lifecycle (compression,
+  // signed-URL fetch, queueing) that shouldn't block or complicate the
+  // rest of the form.
+  let existingPhotoPath: string | null = null; // Storage path already saved on this transaction
+  let existingPhotoUrl: string | null = null; // signed URL, loaded async for display
+  let removePhoto = false; // user tapped ✕ on the existing photo
+  let newPhotoCompressed: CompressedImage | null = null; // freshly picked + compressed, not yet queued
+  let newPhotoPreviewUrl: string | null = null; // local object URL for the above
+  let photoProcessing = false;
+  let photoPending = false; // true if this transaction has an upload still sitting in the local queue
+
   $: {
     if (open && !wasOpen) {
     type = (editing?.type as 'income' | 'expense') || 'income';
@@ -31,9 +46,54 @@
     note = (editing?.note as string) || '';
     catId = (editing?.cat_id as string) || (type === 'income' ? 'other_inc' : 'other_exp');
     walletId = (editing?.wallet_id as string) || $wallets[0]?.id || '';
+
+    existingPhotoPath = (editing?.photo as string) ?? null;
+    existingPhotoUrl = null;
+    removePhoto = false;
+    clearNewPhoto();
+    if (existingPhotoPath) void loadExistingPhoto(existingPhotoPath);
+    if (editing?.id) void hasPendingUpload(editing.id).then((v) => (photoPending = v));
+    else photoPending = false;
     }
     wasOpen = open;
   }
+
+  async function loadExistingPhoto(path: string) {
+    const url = await getPhotoUrl(path);
+    // Guard against a stale response landing after the user already
+    // navigated away from this photo (removed it / closed the sheet).
+    if (existingPhotoPath === path) existingPhotoUrl = url;
+  }
+
+  async function onPhotoSelected(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    (e.target as HTMLInputElement).value = '';
+    if (!file) return;
+    photoProcessing = true;
+    try {
+      newPhotoCompressed = await compressImage(file);
+      if (newPhotoPreviewUrl) URL.revokeObjectURL(newPhotoPreviewUrl);
+      newPhotoPreviewUrl = URL.createObjectURL(newPhotoCompressed.blob);
+      removePhoto = false;
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal memproses foto', 'error');
+    } finally {
+      photoProcessing = false;
+    }
+  }
+
+  function clearNewPhoto() {
+    if (newPhotoPreviewUrl) URL.revokeObjectURL(newPhotoPreviewUrl);
+    newPhotoPreviewUrl = null;
+    newPhotoCompressed = null;
+  }
+
+  function removeExistingPhoto() {
+    removePhoto = true;
+    existingPhotoUrl = null;
+  }
+
+  onDestroy(clearNewPhoto);
 
   $: cats = getCatList(
     type,
@@ -89,8 +149,15 @@
       showToast('Saldo dompet ini kosong — pilih dompet lain', 'error');
       return;
     }
+    // Generated up front (rather than left for upsertRecord's own
+    // fallback) so the id is known now — the photo queue needs it to
+    // build the Storage path, and it must be the SAME id the
+    // transaction row ends up with.
+    const txId = editing?.id ?? newId();
+    const photoValue = removePhoto ? null : existingPhotoPath;
+
     await upsertRecord('transactions', {
-      id: editing?.id,
+      id: txId,
       type,
       amount,
       description: desc.trim(),
@@ -98,8 +165,19 @@
       note: note.trim(),
       cat_id: catId,
       wallet_id: walletId,
-      photo: (editing?.photo as string) ?? null
+      photo: photoValue
     });
+
+    // Storage path is deterministic ({userId}/{txId}.{ext}), so
+    // "replace" is just a new upload overwriting the same path —
+    // only a pure removal (no replacement) needs an explicit delete.
+    if (removePhoto && existingPhotoPath && !newPhotoCompressed) {
+      await deletePhoto(txId, existingPhotoPath);
+    }
+    if (newPhotoCompressed) {
+      await queuePhotoUpload(txId, newPhotoCompressed);
+    }
+
     showToast(
       editing ? 'Transaksi diperbarui' : type === 'income' ? 'Pemasukan dicatat' : 'Pengeluaran dicatat'
     );
@@ -197,6 +275,84 @@
       rows="2"
       class="w-full rounded-lg bg-base-input border border-border px-4 py-3 text-sm text-txt-primary resize-none"
     ></textarea>
+
+    <div>
+      <p class="text-xs text-txt-secondary mb-1.5">Bukti Transaksi (opsional)</p>
+      {#if newPhotoPreviewUrl}
+        <div class="relative w-24 h-24">
+          <img
+            src={newPhotoPreviewUrl}
+            alt="Bukti transaksi"
+            class="w-24 h-24 object-cover rounded-lg border border-border"
+          />
+          <button
+            type="button"
+            on:click={clearNewPhoto}
+            aria-label="Batalkan foto"
+            class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
+            style="background: var(--expense)"
+          >
+            ✕
+          </button>
+        </div>
+      {:else if existingPhotoUrl && !removePhoto}
+        <div class="relative w-24 h-24">
+          <img
+            src={existingPhotoUrl}
+            alt="Bukti transaksi"
+            class="w-24 h-24 object-cover rounded-lg border border-border"
+          />
+          <button
+            type="button"
+            on:click={removeExistingPhoto}
+            aria-label="Hapus foto"
+            class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
+            style="background: var(--expense)"
+          >
+            ✕
+          </button>
+          {#if photoPending}
+            <span
+              class="absolute bottom-0 inset-x-0 text-[9px] text-center py-0.5 rounded-b-lg text-white"
+              style="background: rgba(0,0,0,0.55)"
+            >
+              menunggu upload
+            </span>
+          {/if}
+        </div>
+      {:else if existingPhotoPath && !existingPhotoUrl && !removePhoto}
+        <div class="w-24 h-24 rounded-lg border border-border flex items-center justify-center text-txt-muted text-[10px]">
+          Memuat…
+        </div>
+      {:else}
+        <label
+          class="flex flex-col items-center justify-center w-24 h-24 rounded-lg border border-dashed border-border text-txt-muted cursor-pointer"
+          class:opacity-60={photoProcessing}
+        >
+          {#if photoProcessing}
+            <span class="text-[10px]">Memproses…</span>
+          {:else}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 mb-1">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            <span class="text-[10px]">Tambah Foto</span>
+          {/if}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="hidden"
+            disabled={photoProcessing}
+            on:change={onPhotoSelected}
+          />
+        </label>
+      {/if}
+      <p class="text-[10px] text-txt-muted mt-1">
+        Foto otomatis dikompres (WebP) supaya hemat kuota & penyimpanan. Bisa tetap dilampirkan
+        walau offline — akan terupload otomatis begitu online lagi.
+      </p>
+    </div>
 
     <button
       on:click={submit}
