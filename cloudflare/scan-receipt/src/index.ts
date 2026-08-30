@@ -155,6 +155,7 @@ Aturan HARUS diikuti:
   Contoh: "Indomie, telur, kecap", "Isi bensin Pertamax", atau "Token listrik".
   Pastikan ada kalimat seperti "beli" "belanja" dan lainnya sesuai ketegori list produknya apa aja.
   Jika banyak produk di dalam receipt nya, jangan masukan semua ke descripsi, ringkas menjadi 1 nama utama, contoh "makanan" "jajanan" "peralatan" dan lainnya sesuai kategori, dan dikombinasikan dengan "beli" "belanja" dan lainnya di depan kalimat.
+  Jika merupakan Sebuah layanan jangan pakai kata "beli" akan tetapi pakai kata "biaya" "pembayaran" "pelunasan".
   JANGAN isi dengan nama toko.
   Jika daftar item tidak terbaca jelas, gunakan "".
   Jangan menggunakan generic seperti "Belanja" jika isi struk tidak diketahui.
