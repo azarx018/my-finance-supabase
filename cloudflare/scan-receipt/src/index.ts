@@ -175,11 +175,24 @@ export default {
 
     // 3. Ask Gemini.
     try {
-      const result = await callGemini(env.GEMINI_API_KEY, body.image_base64, body.mime_type, categories);
-      return json(result, 200, cors);
-    } catch (err) {
-      console.error('[scan-receipt] Gemini call failed:', err);
-      return json({ error: 'Gagal membaca struk, coba lagi' }, 502, cors);
+  const result = await callGemini(
+    env.GEMINI_API_KEY,
+    body.image_base64,
+    body.mime_type,
+    categories
+  );
+
+  return json(result, 200, cors);
+} catch (err) {
+  const errorMessage = err instanceof Error
+    ? err.message
+    : String(err);
+
+  console.error(`[scan-receipt] Gemini call failed: ${errorMessage}`);
+
+  return json(
+    { error: `Gemini error: ${errorMessage}` },
+    502,
+    cors
+  );
     }
-  }
-};
