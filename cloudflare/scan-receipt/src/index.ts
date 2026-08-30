@@ -174,7 +174,7 @@ export default {
     const categories = Array.isArray(body.categories) ? body.categories : [];
 
     // 3. Ask Gemini.
-    try {
+ try {
   const result = await callGemini(
     env.GEMINI_API_KEY,
     body.image_base64,
@@ -195,4 +195,6 @@ export default {
     502,
     cors
   );
-    }
+ }
+   }
+};
