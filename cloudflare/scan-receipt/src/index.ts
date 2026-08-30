@@ -166,6 +166,8 @@ Aturan HARUS diikuti:
   Jika tidak ada kategori yang cocok atau daftar kategori kosong, gunakan null.
   Jangan membuat ID kategori sendiri.
 
+- "catatan" : Berisi nama merchant beserta seluruh list produk dalam receipt.
+
 - Jangan mengarang angka, tanggal, nama toko, barang, atau informasi lain yang tidak benar-benar terlihat pada foto.
 
 - Jika informasi tidak terbaca, gunakan nilai kosong ("") atau null sesuai tipe field.
