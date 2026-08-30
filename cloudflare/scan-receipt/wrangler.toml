@@ -8,7 +8,7 @@ compatibility_date = "2024-11-01"
 [vars]
 # CORS allow-list: only your app's own origin(s) may call this Worker.
 # Add your production domain here once you have one, comma-separated.
-ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,"
 # Same value as your app's PUBLIC_SUPABASE_URL — not secret (it's the
 # same project URL your anon key already points to client-side). Used
 # to build the JWKS endpoint for verifying login tokens.
