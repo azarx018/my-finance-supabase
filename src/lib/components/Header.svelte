@@ -76,6 +76,24 @@
       {/if}
     </div>
     <button
+      on:click={() => goto('/asisten')}
+      disabled={pageId === 'asisten'}
+      aria-label="Asisten AI"
+      class="w-9 h-9 flex items-center justify-center text-txt-secondary active:scale-90 transition-transform disabled:opacity-40 disabled:pointer-events-none"
+    >
+      <!-- Sparkles — same stroke-based style as the other header icons
+           (fill="none", stroke-width 2), just like online/dark-mode. -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
+        <path
+          d="M9.94 15.5a2 2 0 00-1.44-1.44L2.36 12.48a.5.5 0 010-.96l6.14-1.58A2 2 0 009.94 8.5l1.58-6.14a.5.5 0 01.96 0L14.06 8.5a2 2 0 001.44 1.44l6.14 1.58a.5.5 0 010 .96l-6.14 1.58a2 2 0 00-1.44 1.44l-1.58 6.14a.5.5 0 01-.96 0z"
+        />
+        <path d="M20 3v4" />
+        <path d="M22 5h-4" />
+        <path d="M4 17v2" />
+        <path d="M5 18H3" />
+      </svg>
+    </button>
+    <button
       on:click={() => goto('/lainnya')}
       aria-label="Menu lainnya"
       class="w-9 h-9 flex items-center justify-center text-txt-secondary active:scale-90 transition-transform"

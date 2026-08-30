@@ -43,6 +43,11 @@ export const NAV_ITEMS: NavItem[] = [
   }
 ];
 
+// Accessed via the ✨ icon in the header (not a bottom-nav tab — it's
+// reachable from every page, not just one), so it gets a back button
+// like the other SUB_PAGES below rather than sitting in NAV_ITEMS.
+export const ASSISTANT_PAGE_ID = 'asisten';
+
 // Ported from nav.js's `titles` map.
 export const PAGE_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -55,13 +60,14 @@ export const PAGE_TITLES: Record<string, string> = {
   settings: 'Pengaturan',
   budget: 'Budget Manager',
   kalender: 'Kalender Keuangan',
-  dev: 'Dev — Sync Test'
+  dev: 'Dev — Sync Test',
+  asisten: 'Asisten AI'
 };
 
 // Ported from nav.js's SUB_PAGES — these show a back button instead of
 // the logo, and (per the original's highlight logic) never light up a
 // bottom-nav tab since none of them has a matching nav item.
-export const SUB_PAGES = ['dompet', 'hutang', 'settings', 'kalender', 'dev'];
+export const SUB_PAGES = ['dompet', 'hutang', 'settings', 'kalender', 'dev', 'asisten'];
 
 // FAB shows on every page where "+" starts a meaningful add-flow, and
 // hides only where there's nothing sensible to add (analitik is
