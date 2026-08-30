@@ -1,0 +1,40 @@
+name: Deploy Cloudflare Worker
+
+# Runs on every push to main. Vercel deploys the SvelteKit app on its
+# own via the native GitHub integration — this workflow only handles
+# the Cloudflare Worker, since that's the part `wrangler` can't do
+# locally from Termux.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # lets you trigger a redeploy manually from the Actions tab
+
+jobs:
+  deploy-worker:
+    name: Deploy Cloudflare Worker (scan-receipt)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare/scan-receipt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      # wrangler-action both sets the Worker's secret AND deploys, in
+      # that order — so GEMINI_API_KEY is always current even if it
+      # changes later, without you ever needing `wrangler` locally.
+      - name: Set secrets & deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare/scan-receipt
+          secrets: |
+            GEMINI_API_KEY
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

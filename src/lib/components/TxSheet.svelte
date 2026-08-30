@@ -1,7 +1,7 @@
 <script lang="ts">
   import BottomSheet from './BottomSheet.svelte';
   import CatPill from './CatPill.svelte';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { getCatList, type Cat } from '$lib/data/categories';
   import { parseAmt, todayStr, formatRpC } from '$lib/data/format';
   import { upsertRecord, softDeleteRecord, newId } from '$lib/db/repo';
@@ -10,6 +10,8 @@
   import { computeWalletStats } from '$lib/data/wallets';
   import { compressImage, type CompressedImage } from '$lib/media/compressImage';
   import { queuePhotoUpload, getPhotoUrl, deletePhoto, hasPendingUpload } from '$lib/media/photoUpload';
+  import { scanReceipt, isReceiptScanConfigured } from '$lib/ocr/scanReceipt';
+  import { session } from '$lib/stores/session';
   import type { SyncableRecord } from '$lib/db/dexie';
 
   export let open = false;
@@ -37,6 +39,33 @@
   let photoProcessing = false;
   let photoPending = false; // true if this transaction has an upload still sitting in the local queue
 
+  // "🪄 Baca Struk Otomatis" state. `scanConfigured` is checked once —
+  // it just reflects whether PUBLIC_SCAN_RECEIPT_URL was set at build
+  // time, so the button doesn't even render for anyone who skipped that
+  // optional setup (see cloudflare/scan-receipt/README.md).
+  const scanConfigured = isReceiptScanConfigured();
+  let scanning = false;
+  let online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  // Tracks which fields were just filled by the scan, purely for the
+  // yellow "please double-check this" highlight below — cleared the
+  // moment the person actually edits that field, since at that point
+  // they've already reviewed it.
+  let autofilledAmount = false;
+  let autofilledDate = false;
+  let autofilledDesc = false;
+  let autofilledCat = false;
+
+  onMount(() => {
+    const goOnline = () => (online = true);
+    const goOffline = () => (online = false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  });
+
   $: {
     if (open && !wasOpen) {
     type = (editing?.type as 'income' | 'expense') || 'income';
@@ -54,6 +83,10 @@
     if (existingPhotoPath) void loadExistingPhoto(existingPhotoPath);
     if (editing?.id) void hasPendingUpload(editing.id).then((v) => (photoPending = v));
     else photoPending = false;
+    autofilledAmount = false;
+    autofilledDate = false;
+    autofilledDesc = false;
+    autofilledCat = false;
     }
     wasOpen = open;
   }
@@ -75,10 +108,62 @@
       if (newPhotoPreviewUrl) URL.revokeObjectURL(newPhotoPreviewUrl);
       newPhotoPreviewUrl = URL.createObjectURL(newPhotoCompressed.blob);
       removePhoto = false;
+      autofilledAmount = false;
+      autofilledDate = false;
+      autofilledDesc = false;
+      autofilledCat = false;
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal memproses foto', 'error');
     } finally {
       photoProcessing = false;
+    }
+  }
+
+  async function handleScanReceipt() {
+    if (!newPhotoCompressed || scanning) return;
+    const token = $session?.access_token;
+    if (!token) {
+      showToast('Sesi login tidak ditemukan, coba login ulang', 'error');
+      return;
+    }
+    scanning = true;
+    try {
+      const expenseCats = getCatList('expense', $customCategories as unknown as Cat[]).map((c) => ({
+        id: c.id,
+        name: c.name
+      }));
+      const result = await scanReceipt(newPhotoCompressed, expenseCats, token);
+      if (!result) {
+        showToast('Kelihatannya bukan struk — isi manual ya', 'info');
+        return;
+      }
+      if (result.amount != null) {
+        amountStr = result.amount.toLocaleString('id-ID');
+        autofilledAmount = true;
+      }
+      if (result.date) {
+        date = result.date;
+        autofilledDate = true;
+      }
+      if (result.description) {
+        desc = result.description;
+        autofilledDesc = true;
+      }
+      if (result.categoryId && expenseCats.some((c) => c.id === result.categoryId)) {
+        catId = result.categoryId;
+        autofilledCat = true;
+      }
+      // Merchant name goes to the note field, never description (see
+      // earlier design discussion) — only when the person hasn't
+      // already typed their own note, so this never clobbers real input.
+      if (result.merchantName && !note.trim()) {
+        note = result.merchantName;
+      }
+      showToast('Struk terbaca — cek dulu sebelum simpan ya', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal membaca struk', 'error');
+    } finally {
+      scanning = false;
     }
   }
 
@@ -125,6 +210,7 @@
 
   function onAmountInput(e: Event) {
     amountStr = parseAmt((e.target as HTMLInputElement).value).toLocaleString('id-ID');
+    autofilledAmount = false;
   }
 
   async function submit() {
@@ -228,12 +314,21 @@
       on:input={onAmountInput}
       inputmode="numeric"
       placeholder="Rp 0"
-      class="w-full rounded-lg bg-base-input border border-border px-4 py-3 text-lg font-semibold text-txt-primary"
+      class="w-full rounded-lg bg-base-input border px-4 py-3 text-lg font-semibold text-txt-primary"
+      style="border-color: {autofilledAmount ? 'var(--warn, #eab308)' : 'var(--border)'}"
     />
 
     <div class="flex gap-2 overflow-x-auto pb-1">
       {#each cats as c (c.id)}
-        <CatPill emoji={c.emoji} label={c.name} selected={catId === c.id} onClick={() => (catId = c.id)} />
+        <CatPill
+          emoji={c.emoji}
+          label={c.name}
+          selected={catId === c.id}
+          onClick={() => {
+            catId = c.id;
+            autofilledCat = false;
+          }}
+        />
       {/each}
     </div>
 
@@ -261,13 +356,17 @@
 
     <input
       bind:value={desc}
+      on:input={() => (autofilledDesc = false)}
       placeholder="Deskripsi (mis. Makan siang)"
-      class="w-full rounded-lg bg-base-input border border-border px-4 py-3 text-sm text-txt-primary"
+      class="w-full rounded-lg bg-base-input border px-4 py-3 text-sm text-txt-primary"
+      style="border-color: {autofilledDesc ? 'var(--warn, #eab308)' : 'var(--border)'}"
     />
     <input
       bind:value={date}
+      on:input={() => (autofilledDate = false)}
       type="date"
-      class="w-full rounded-lg bg-base-input border border-border px-4 py-3 text-sm text-txt-primary"
+      class="w-full rounded-lg bg-base-input border px-4 py-3 text-sm text-txt-primary"
+      style="border-color: {autofilledDate ? 'var(--warn, #eab308)' : 'var(--border)'}"
     />
     <textarea
       bind:value={note}
@@ -295,6 +394,23 @@
             ✕
           </button>
         </div>
+        {#if scanConfigured && type === 'expense'}
+          <button
+            type="button"
+            on:click={handleScanReceipt}
+            disabled={scanning || !online}
+            class="mt-2 w-full text-xs font-medium py-2 rounded-lg border flex items-center justify-center gap-1.5 disabled:opacity-50"
+            style="border-color: var(--primary); color: var(--primary)"
+          >
+            {#if scanning}
+              ⏳ Membaca struk…
+            {:else if !online}
+              🪄 Baca Struk Otomatis (perlu online)
+            {:else}
+              🪄 Baca Struk Otomatis
+            {/if}
+          </button>
+        {/if}
       {:else if existingPhotoUrl && !removePhoto}
         <div class="relative w-24 h-24">
           <img
@@ -379,6 +495,7 @@
       <p class="text-[10px] text-txt-muted mt-1">
         Foto otomatis dikompres (WebP) supaya hemat kuota & penyimpanan. Bisa tetap dilampirkan
         walau offline — akan terupload otomatis begitu online lagi.
+        {#if scanConfigured} "Baca Struk Otomatis" butuh koneksi internet.{/if}
       </p>
     </div>
 
