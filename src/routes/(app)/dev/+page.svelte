@@ -4,6 +4,7 @@
   import { db, type SyncableRecord } from '$lib/db/dexie';
   import { upsertRecord } from '$lib/db/repo';
   import { flushQueue } from '$lib/sync/engine';
+  import { getUserId } from '$lib/stores/session';
   import ThemeSwitcher from '$lib/components/ThemeSwitcher.svelte';
 
   let online = typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -17,12 +18,14 @@
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
-    const queueSub = liveQuery(() => db.syncQueue.count()).subscribe({
+    const queueSub = liveQuery(() =>
+      db.syncQueue.filter((e) => e.payload.user_id === getUserId()).count()
+    ).subscribe({
       next: (v) => (pending = v),
       error: console.error
     });
     const walletSub = liveQuery(() =>
-      db.wallets.toArray().then((rows) => rows.filter((r) => !r.deleted_at))
+      db.wallets.toArray().then((rows) => rows.filter((r) => !r.deleted_at && r.user_id === getUserId()))
     ).subscribe({
       next: (rows) => (wallets = rows),
       error: console.error

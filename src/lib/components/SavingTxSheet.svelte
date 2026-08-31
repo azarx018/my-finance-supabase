@@ -1,7 +1,7 @@
 <script lang="ts">
   import BottomSheet from './BottomSheet.svelte';
   import { parseAmt, todayStr, formatRpC } from '$lib/data/format';
-  import { upsertRecord } from '$lib/db/repo';
+  import { upsertRecord, atomic } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import { wallets, transactions, savingBuckets, savingTxs } from '$lib/stores/data';
   import { computeWalletStats } from '$lib/data/wallets';
@@ -72,29 +72,39 @@
       }
     }
 
-    await upsertRecord('saving_txs', {
-      bucket_id: selectedBucketId,
-      wallet_id: selectedWalletId,
-      type: mode,
-      amount,
-      date,
-      note: note.trim()
-    });
-    // Mirrors the wallet balance via a dedicated 'saving_transfer' type +
-    // direction, exactly like the original — every income/expense filter
-    // already excludes this type, so nothing extra to remember elsewhere.
+    // BUGFIX (audit #2, atomicity): these two writes used to run as
+    // separate upsertRecord calls — if the app got interrupted between
+    // them (closed tab, crash, IndexedDB error), a saving_txs deposit
+    // could exist with no matching transactions row, silently making
+    // that money count as BOTH still-in-wallet (nothing recorded it
+    // leaving) AND already-in-the-bucket (saving_txs says it arrived).
+    // atomic() makes this one all-or-nothing unit.
     const desc = mode === 'deposit' ? `Tabung → ${bucket?.name || 'Tabungan'}` : `Tarik ← ${bucket?.name || 'Tabungan'}`;
-    await upsertRecord('transactions', {
-      type: 'saving_transfer',
-      direction: mode,
-      amount,
-      cat_id: 'saving_transfer',
-      description: desc,
-      date,
-      wallet_id: selectedWalletId,
-      note: note.trim(),
-      photo: null,
-      bucket_id: selectedBucketId
+    await atomic(['saving_txs', 'transactions'], async () => {
+      await upsertRecord('saving_txs', {
+        bucket_id: selectedBucketId,
+        wallet_id: selectedWalletId,
+        type: mode,
+        amount,
+        date,
+        note: note.trim()
+      });
+      // Mirrors the wallet balance via a dedicated 'saving_transfer'
+      // type + direction, exactly like the original — every
+      // income/expense filter already excludes this type, so nothing
+      // extra to remember elsewhere.
+      await upsertRecord('transactions', {
+        type: 'saving_transfer',
+        direction: mode,
+        amount,
+        cat_id: 'saving_transfer',
+        description: desc,
+        date,
+        wallet_id: selectedWalletId,
+        note: note.trim(),
+        photo: null,
+        bucket_id: selectedBucketId
+      });
     });
 
     showToast(mode === 'deposit' ? `Berhasil menabung ${formatRpC(amount)}` : `Berhasil menarik ${formatRpC(amount)}`);

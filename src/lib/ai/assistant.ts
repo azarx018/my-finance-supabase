@@ -24,6 +24,16 @@ export type AssistantAction =
 
 export type AssistantResponse = { type: 'text'; text: string } | { type: 'actions'; actions: AssistantAction[] };
 
+export interface CategorySpend {
+  cat_id: string;
+  amount: number;
+}
+
+export interface SpendingSummary {
+  total: number;
+  by_category: CategorySpend[];
+}
+
 export interface AssistantContext {
   current_month: string;
   categories: Array<{ id: string; name: string }>;
@@ -31,6 +41,8 @@ export interface AssistantContext {
   salary_transaction: { amount: number; date: string; wallet_id: string | null } | null;
   avg_spending_last_3mo: Record<string, number>;
   existing_budget_this_month: Record<string, number>;
+  spending_this_month: SpendingSummary;
+  spending_last_month: SpendingSummary;
 }
 
 export function isAssistantConfigured(): boolean {

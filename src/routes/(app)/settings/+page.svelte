@@ -33,8 +33,18 @@
 
   onMount(() => {
     if ($notifEnabled) scheduleNotif();
-    const sub = liveQuery(() => db.syncQueue.count()).subscribe({ next: (v) => (pendingPush = v) });
-    const failedSub = liveQuery(() => db.failedQueue.orderBy('failedAt').reverse().toArray()).subscribe({
+    // BUGFIX (P0 security/privacy audit): both queues carry the owning
+    // user's id inside `payload.user_id` (see repo.ts's enqueue()) —
+    // filtering here means a leftover entry from a different account on
+    // a shared device (see wipeLocalDatabase() in db/dexie.ts for the
+    // main fix) can never show up as "your" pending/failed sync state.
+    const sub = liveQuery(() =>
+      db.syncQueue.filter((e) => e.payload.user_id === getUserId()).count()
+    ).subscribe({ next: (v) => (pendingPush = v) });
+    const failedSub = liveQuery(async () => {
+      const rows = await db.failedQueue.filter((e) => e.payload.user_id === getUserId()).sortBy('failedAt');
+      return rows.reverse();
+    }).subscribe({
       next: (v) => (failedEntries = v)
     });
     const goOnline = () => (online = true);

@@ -23,6 +23,16 @@ interface SalaryTransaction {
   wallet_id: string | null;
 }
 
+interface CategorySpend {
+  cat_id: string;
+  amount: number;
+}
+
+interface SpendingSummary {
+  total: number;
+  by_category: CategorySpend[]; // sorted highest first
+}
+
 interface AssistantRequestBody {
   message: string;
   history: ChatTurn[]; // prior turns this session, oldest first — NOT persisted server-side (see Fase B/C notes)
@@ -32,6 +42,8 @@ interface AssistantRequestBody {
   salary_transaction: SalaryTransaction | null; // most recent cat_id:'salary' income tx this app already found locally
   avg_spending_last_3mo: Record<string, number>; // cat_id -> average monthly amount
   existing_budget_this_month: Record<string, number>; // cat_id -> limit_amount already set for current_month
+  spending_this_month: SpendingSummary; // "get_spending_summary" capability — see analytics.ts's getSpendingSummary
+  spending_last_month: SpendingSummary; // for "kenapa pengeluaran gue naik?"-type questions
 }
 
 // The built-in "Tabungan" expense category (categories.ts — id:
@@ -109,6 +121,11 @@ function buildTools(categories: CategoryOption[], wallets: WalletOption[]) {
   ];
 }
 
+function formatCategorySpend(list: CategorySpend[]): string {
+  if (!list.length) return '(tidak ada pengeluaran)';
+  return list.map((c) => `- ${c.cat_id}: Rp${c.amount.toLocaleString('id-ID')}`).join('\n');
+}
+
 function buildSystemInstruction(body: AssistantRequestBody): string {
   const categoryList = body.categories
     .filter((c) => c.id !== SAVINGS_CATEGORY_ID)
@@ -126,6 +143,10 @@ function buildSystemInstruction(body: AssistantRequestBody): string {
   const salaryLine = body.salary_transaction
     ? `Ada transaksi pemasukan berkategori Gaji bulan ini: Rp${body.salary_transaction.amount.toLocaleString('id-ID')} (tanggal ${body.salary_transaction.date}), masuk ke dompet id "${body.salary_transaction.wallet_id ?? 'tidak diketahui'}".`
     : 'Tidak ditemukan transaksi pemasukan berkategori Gaji bulan ini.';
+  const spendingChangePct =
+    body.spending_last_month.total > 0
+      ? Math.round(((body.spending_this_month.total - body.spending_last_month.total) / body.spending_last_month.total) * 100)
+      : null;
 
   return `Kamu adalah asisten keuangan pribadi di aplikasi "My Finance". Jawab dengan Bahasa Indonesia santai, ringkas (ini chat di HP, bukan esai), dan ramah.
 
@@ -145,6 +166,13 @@ ${avgList}
 Budget yang sudah ada bulan ini:
 ${existingList}
 
+RINGKASAN PENGELUARAN bulan ini (total Rp${body.spending_this_month.total.toLocaleString('id-ID')}), per kategori dari yang terbesar:
+${formatCategorySpend(body.spending_this_month.by_category)}
+
+RINGKASAN PENGELUARAN bulan lalu (total Rp${body.spending_last_month.total.toLocaleString('id-ID')}), per kategori dari yang terbesar:
+${formatCategorySpend(body.spending_last_month.by_category)}
+${spendingChangePct !== null ? `Perubahan total pengeluaran vs bulan lalu: ${spendingChangePct > 0 ? '+' : ''}${spendingChangePct}%.` : ''}
+
 ATURAN PENTING:
 1. JANGAN pernah panggil tool apapun sebelum nominal dana yang tersedia (gaji/pemasukan) itu JELAS dan sudah dikonfirmasi user di percakapan ini.
 2. Kalau ada transaksi Gaji yang ditemukan (lihat di atas) dan user belum pernah konfirmasi di percakapan ini, TANYA/KONFIRMASI dulu lewat teks biasa — misal: "Gaji bulan ini tercatat Rp8.000.000 tanggal 1 Sept, mau saya pakai ini sebagai dasar budget?" — JANGAN langsung panggil tool.
@@ -153,8 +181,10 @@ ATURAN PENTING:
 5. Kalau user minta "budget" yang TERMASUK porsi tabungan/menyisihkan uang, pisahkan: porsi pengeluaran lewat propose_budget, porsi tabungan lewat propose_saving — BOLEH panggil KEDUANYA dalam satu balasan yang sama kalau memang diperlukan.
 6. Untuk propose_saving, kalau ada dompet gaji di konteks, gunakan wallet_id itu sebagai dompet sumber secara default.
 7. Total alokasi (budget + saving) sebaiknya mendekati (tidak jauh melebihi) nominal yang tersedia.
-8. Kalau user cuma nanya hal lain (bukan minta dibuatkan/diubah budget/tabungan), jawab biasa pakai teks, jangan panggil tool apapun.
-9. Jangan mengarang angka yang tidak ada dasarnya dari data di atas atau dari yang disebut user sendiri.`;
+8. Kalau user tanya soal pengeluaran ("pengeluaran terbesar apa?", "kenapa boros/naik?", "abis berapa bulan ini?") — JAWAB LANGSUNG pakai data RINGKASAN PENGELUARAN di atas, JANGAN panggil tool apapun, dan JANGAN bilang kamu tidak punya datanya karena datanya sudah ada di atas.
+9. Kalau user tanya "budget gue masuk akal nggak?" atau semacamnya — bandingkan tiap "budget yang sudah ada bulan ini" dengan "rata-rata pengeluaran per kategori" yang relevan, kasih pendapat jujur (misal: budget makanan Rp600rb tapi rata-rata 3 bulan Rp850rb → kemungkinan terlalu rendah). Jawab pakai teks biasa, jangan panggil tool.
+10. Kalau user cuma nanya hal lain di luar semua itu, jawab biasa pakai teks, jangan panggil tool apapun.
+11. Jangan mengarang angka yang tidak ada dasarnya dari data di atas atau dari yang disebut user sendiri.`;
 }
 
 export async function handleAssistant(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
@@ -170,6 +200,9 @@ export async function handleAssistant(request: Request, env: Env, cors: Record<s
   const categories = Array.isArray(body.categories) ? body.categories : [];
   const wallets = Array.isArray(body.wallets) ? body.wallets : [];
   const history = Array.isArray(body.history) ? body.history : [];
+  const emptySummary: SpendingSummary = { total: 0, by_category: [] };
+  body.spending_this_month = body.spending_this_month ?? emptySummary;
+  body.spending_last_month = body.spending_last_month ?? emptySummary;
   // Rough cap on conversation length sent per request — keeps token use
   // (and thus quota burn across the rotation list) bounded even if a
   // chat session runs long. History is client-side/session-only anyway

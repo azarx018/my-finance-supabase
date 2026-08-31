@@ -2,7 +2,7 @@
   import BottomSheet from './BottomSheet.svelte';
   import { WALLET_EMOJIS } from '$lib/data/categories';
   import { parseAmt } from '$lib/data/format';
-  import { upsertRecord, softDeleteRecord } from '$lib/db/repo';
+  import { upsertRecord, softDeleteRecord, atomic } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import { transactions } from '$lib/stores/data';
   import type { SyncableRecord } from '$lib/db/dexie';
@@ -67,14 +67,22 @@
     // counting orphaned rows forever, since neither filters by whether
     // the owning wallet still exists. Cascade soft-delete keeps every
     // number in the app consistent with what the user sees in Dompet.
+    // BUGFIX (audit #2, atomicity): this loop can touch dozens/hundreds
+    // of transaction rows — an interruption partway through used to be
+    // able to leave the wallet gone but some of its transactions still
+    // active (orphaned, referencing a wallet that no longer exists), or
+    // vice versa. Wrapping the whole cascade means it's all-or-nothing:
+    // either the wallet AND every one of its transactions end up
+    // deleted together, or none of them do.
     const orphaned = $transactions.filter(
       (t) => t.wallet_id === editing!.id || t.to_wallet_id === editing!.id
     );
-    for (const t of orphaned) {
-      await softDeleteRecord('transactions', t.id);
-    }
-
-    await softDeleteRecord('wallets', editing.id);
+    await atomic(['transactions', 'wallets'], async () => {
+      for (const t of orphaned) {
+        await softDeleteRecord('transactions', t.id);
+      }
+      await softDeleteRecord('wallets', editing!.id);
+    });
     showToast('Dompet & transaksi terkait dihapus', 'info');
     onClose();
   }

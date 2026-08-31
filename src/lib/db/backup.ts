@@ -1,6 +1,7 @@
 import { db, SYNC_TABLES, type SyncTable } from '$lib/db/dexie';
 import { upsertRecord } from './repo';
 import { todayStr } from '$lib/data/format';
+import { getUserId } from '$lib/stores/session';
 
 const APP_VERSION = 'sveltekit-1';
 
@@ -18,8 +19,17 @@ function dlBlob(content: string, filename: string, type: string): void {
  * Unlike the original's exportJSON(), this reads from Dexie (the local
  * mirror) rather than a single in-memory APP object — but the shape is
  * otherwise the same idea: one portable snapshot per table.
+ *
+ * BUGFIX (P0 security/privacy audit): this used to export every row in
+ * Dexie with no `user_id` check — on a shared device where a previous
+ * user's rows hadn't been cleared (see wipeLocalDatabase()), a backup
+ * could contain a DIFFERENT person's financial data. Filtering by the
+ * currently signed-in user's id here is the correct fix regardless of
+ * whether the mirror is ever supposed to hold stray rows — an export
+ * should only ever be able to contain what the exporting account owns.
  */
 export async function exportJSON(): Promise<void> {
+  const userId = getUserId();
   const data: Record<string, unknown> = {
     app: 'My Finance',
     version: APP_VERSION,
@@ -27,13 +37,14 @@ export async function exportJSON(): Promise<void> {
   };
   for (const table of SYNC_TABLES) {
     const rows = await db[table].toArray();
-    data[table] = rows.filter((r) => !r.deleted_at);
+    data[table] = rows.filter((r) => !r.deleted_at && r.user_id === userId);
   }
   dlBlob(JSON.stringify(data, null, 2), `my-finance-backup-${todayStr()}.json`, 'application/json');
 }
 
 export async function exportCSV(): Promise<void> {
-  const rows = (await db.transactions.toArray()).filter((r) => !r.deleted_at);
+  const userId = getUserId();
+  const rows = (await db.transactions.toArray()).filter((r) => !r.deleted_at && r.user_id === userId);
   if (rows.length === 0) throw new Error('Tidak ada transaksi untuk diekspor');
   const lines = rows.map((t) =>
     [
@@ -157,9 +168,15 @@ export async function importJSON(file: File): Promise<ImportResult> {
   // local, then grow it as we import — so a wallet imported earlier in
   // this same file already counts as "exists" for a transaction imported
   // right after it, without needing a live round-trip to Supabase.
+  // Scoped to the current user for the same reason as exportJSON above
+  // — a stray leftover row from a different account should never count
+  // as "already exists" here.
+  const userId = getUserId();
   const knownIds: Record<string, Set<string>> = {};
   for (const table of SYNC_TABLES as readonly SyncTable[]) {
-    knownIds[table] = new Set((await db[table].toArray()).map((r) => r.id));
+    knownIds[table] = new Set(
+      (await db[table].toArray()).filter((r) => r.user_id === userId).map((r) => r.id)
+    );
   }
 
   const counts: Record<string, number> = {};

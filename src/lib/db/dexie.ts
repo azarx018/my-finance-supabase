@@ -12,6 +12,10 @@ export interface SyncableRecord {
   user_id: string;
   updated_at: string; // ISO string
   deleted_at: string | null;
+  // Conflict metadata (audit #6) — observability only, does NOT change
+  // this app's last-write-wins behavior. See repo.ts's upsertRecord().
+  version?: number;
+  updated_by?: string; // device id from stores/device.ts
   [key: string]: unknown;
 }
 
@@ -143,3 +147,45 @@ class MyFinanceDB extends Dexie {
 }
 
 export const db = new MyFinanceDB();
+
+/**
+ * BUGFIX (P0 security/privacy audit): `signOut()` used to only call
+ * Supabase's own signOut — it never touched the local Dexie mirror.
+ * Since IndexedDB is shared per BROWSER, not per logged-in user, User
+ * A's rows (transactions, wallets, sync queue, dead-letter queue,
+ * pending photo uploads — everything) stayed physically present after
+ * logout. If User B then logged in on the same device, every unscoped
+ * query in the app (dashboard totals, export, the sync queue drain,
+ * etc.) would read/act on BOTH users' rows mixed together — a real
+ * cross-account data leak, not a theoretical one (see the audit doc's
+ * P0 item #1 for the exact scenario). Wiping every table here, called
+ * from signOut(), is the single fix that closes this everywhere at
+ * once instead of needing every single query site to remember to
+ * filter by user_id individually.
+ *
+ * Deliberately wipes `syncMeta` too — that table's `lastPulledAt`
+ * checkpoints are NOT user-scoped (its primary key is just the table
+ * name). Leaving a previous user's checkpoint in place would make the
+ * NEXT user's first pull only fetch rows updated after that stale
+ * timestamp, silently missing everything older — a second, subtler
+ * bug the wipe also happens to prevent.
+ */
+export async function wipeLocalDatabase(): Promise<void> {
+  await db.transaction(
+    'rw',
+    [
+      ...SYNC_TABLES.map((t) => db[t]),
+      db.syncQueue,
+      db.failedQueue,
+      db.syncMeta,
+      db.pendingPhotoUploads
+    ],
+    async () => {
+      for (const table of SYNC_TABLES) await db[table].clear();
+      await db.syncQueue.clear();
+      await db.failedQueue.clear();
+      await db.syncMeta.clear();
+      await db.pendingPhotoUploads.clear();
+    }
+  );
+}

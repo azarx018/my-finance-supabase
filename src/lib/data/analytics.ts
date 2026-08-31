@@ -237,3 +237,47 @@ export function getExistingBudget(budgets: SyncableRecord[], month: string): Rec
     });
   return result;
 }
+
+export interface CategorySpend {
+  cat_id: string;
+  amount: number;
+}
+
+export interface SpendingSummary {
+  total: number;
+  by_category: CategorySpend[]; // sorted highest first — index 0 IS "biggest category"
+}
+
+/**
+ * Spending breakdown for exactly one month — the "get_spending_summary"
+ * capability for the AI Assistant, computed entirely client-side from
+ * Dexie (same reasoning as getAverageSpendingByCategory: no raw
+ * transactions ever leave the device, and no extra Gemini round-trip is
+ * needed just to fetch this). Sent as context on every /assistant
+ * request alongside the current month AND the previous one, so the
+ * model can answer "pengeluaran terbesar bulan ini?" or "kenapa naik?"
+ * directly from context instead of needing a tool-call round-trip.
+ */
+export function getSpendingSummary(transactions: SyncableRecord[], month: string): SpendingSummary {
+  const totals: Record<string, number> = {};
+  let total = 0;
+  transactions
+    .filter((t) => t.type === 'expense' && (t.date as string).startsWith(month))
+    .forEach((t) => {
+      const catId = (t.cat_id as string) || 'other_exp';
+      const amt = t.amount as number;
+      totals[catId] = (totals[catId] || 0) + amt;
+      total += amt;
+    });
+  const by_category = Object.entries(totals)
+    .map(([cat_id, amount]) => ({ cat_id, amount }))
+    .sort((a, b) => b.amount - a.amount);
+  return { total, by_category };
+}
+
+/** "2026-09" -> "2026-08". Handles the January -> December-of-previous-year rollover. */
+export function getPreviousMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 2, 1); // JS months are 0-indexed; -2 = one month before `m`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}

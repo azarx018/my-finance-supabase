@@ -8,7 +8,9 @@
   import {
     getAverageSpendingByCategory,
     findSalaryTransaction,
-    getExistingBudget
+    getExistingBudget,
+    getSpendingSummary,
+    getPreviousMonth
   } from '$lib/data/analytics';
   import {
     askAssistant,
@@ -18,7 +20,7 @@
     type ProposeBudgetArgs,
     type ProposeSavingArgs
   } from '$lib/ai/assistant';
-  import { upsertRecord } from '$lib/db/repo';
+  import { upsertRecord, atomic } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import BudgetProposalCard from '$lib/components/BudgetProposalCard.svelte';
   import SavingProposalCard from '$lib/components/SavingProposalCard.svelte';
@@ -117,7 +119,9 @@
           wallets: $wallets.map((w) => ({ id: w.id, name: w.name as string })),
           salary_transaction: salary ? { amount: salary.amount, date: salary.date, wallet_id: salary.walletId } : null,
           avg_spending_last_3mo: getAverageSpendingByCategory($transactions, 3),
-          existing_budget_this_month: getExistingBudget($budgets, month)
+          existing_budget_this_month: getExistingBudget($budgets, month),
+          spending_this_month: getSpendingSummary($transactions, month),
+          spending_last_month: getSpendingSummary($transactions, getPreviousMonth(month))
         },
         token
       );
@@ -146,20 +150,29 @@
     if (!msg?.action || msg.action.kind !== 'propose_budget') return;
     const month = msg.action.args.month;
     try {
-      for (const alloc of allocations) {
-        // Reuse the existing row's id when this category already has a
-        // budget for this month (→ update), otherwise let upsertRecord
-        // generate a new one (→ insert). `budgets` has a
-        // unique(user_id, cat_id, month) constraint — mirrors
-        // BudgetSheet.svelte's own logic rather than reinventing it.
-        const existing = $budgets.find((b) => b.month === month && b.cat_id === alloc.category_id);
-        await upsertRecord('budgets', {
-          id: existing?.id,
-          cat_id: alloc.category_id,
-          limit_amount: alloc.amount,
-          month
-        });
-      }
+      // BUGFIX (audit #2, atomicity): each budget row is independent
+      // (unlike saving/debt, they don't reference each other), but a
+      // partial apply — say 3 of 5 categories written before an error —
+      // would still leave the person with a half-applied budget and no
+      // clean way to tell which categories got the AI's numbers and
+      // which didn't. Atomic here means "Terapkan" either fully
+      // succeeds or the budget stays exactly as it was before.
+      await atomic(['budgets'], async () => {
+        for (const alloc of allocations) {
+          // Reuse the existing row's id when this category already has a
+          // budget for this month (→ update), otherwise let upsertRecord
+          // generate a new one (→ insert). `budgets` has a
+          // unique(user_id, cat_id, month) constraint — mirrors
+          // BudgetSheet.svelte's own logic rather than reinventing it.
+          const existing = $budgets.find((b) => b.month === month && b.cat_id === alloc.category_id);
+          await upsertRecord('budgets', {
+            id: existing?.id,
+            cat_id: alloc.category_id,
+            limit_amount: alloc.amount,
+            month
+          });
+        }
+      });
       messages = messages.map((m) =>
         m.id === messageId && m.action ? { ...m, action: { ...m.action, applied: true } } : m
       );
@@ -189,31 +202,37 @@
     }
 
     try {
-      const bucket = await upsertRecord('saving_buckets', {
-        name: data.name,
-        emoji: '🐷',
-        target: 0,
-        status: 'active'
-      });
-      await upsertRecord('saving_txs', {
-        bucket_id: bucket.id,
-        wallet_id: data.walletId,
-        type: 'deposit',
-        amount: data.amount,
-        date: new Date().toISOString().slice(0, 10),
-        note: 'Dibuat dari Asisten AI'
-      });
-      await upsertRecord('transactions', {
-        type: 'saving_transfer',
-        direction: 'deposit',
-        amount: data.amount,
-        cat_id: 'saving_transfer',
-        description: `Tabung → ${data.name}`,
-        date: new Date().toISOString().slice(0, 10),
-        wallet_id: data.walletId,
-        note: 'Dibuat dari Asisten AI',
-        photo: null,
-        bucket_id: bucket.id
+      // BUGFIX (audit #2, atomicity): same risk as SavingTxSheet's
+      // manual deposit flow — bucket + saving_tx + transaction must land
+      // together or not at all, otherwise the money could count as both
+      // still-in-wallet and already-in-the-bucket.
+      await atomic(['saving_buckets', 'saving_txs', 'transactions'], async () => {
+        const bucket = await upsertRecord('saving_buckets', {
+          name: data.name,
+          emoji: '🐷',
+          target: 0,
+          status: 'active'
+        });
+        await upsertRecord('saving_txs', {
+          bucket_id: bucket.id,
+          wallet_id: data.walletId,
+          type: 'deposit',
+          amount: data.amount,
+          date: new Date().toISOString().slice(0, 10),
+          note: 'Dibuat dari Asisten AI'
+        });
+        await upsertRecord('transactions', {
+          type: 'saving_transfer',
+          direction: 'deposit',
+          amount: data.amount,
+          cat_id: 'saving_transfer',
+          description: `Tabung → ${data.name}`,
+          date: new Date().toISOString().slice(0, 10),
+          wallet_id: data.walletId,
+          note: 'Dibuat dari Asisten AI',
+          photo: null,
+          bucket_id: bucket.id
+        });
       });
 
       messages = messages.map((m) =>

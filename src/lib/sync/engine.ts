@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { db, SYNC_TABLES, type SyncTable, type SyncableRecord } from '$lib/db/dexie';
 import { supabase } from '$lib/supabase/client';
 import { flushPhotoQueue } from '$lib/media/photoUpload';
+import { getUserId } from '$lib/stores/session';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 let realtimeChannels: RealtimeChannel[] = [];
@@ -71,8 +72,22 @@ export async function flushQueue(): Promise<void> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   flushing = true;
   try {
+    const currentUserId = getUserId();
     const entries = await db.syncQueue.orderBy('ts').toArray();
     for (const entry of entries) {
+      // BUGFIX (P0 security/privacy audit): a queue entry left over
+      // from a DIFFERENT signed-in user on this same device (see
+      // wipeLocalDatabase() in db/dexie.ts for the main fix — this is
+      // the belt-and-suspenders check for the moment before a wipe
+      // finishes) must never be pushed under the CURRENT session. Doing
+      // so would either write one user's data under another's auth, or
+      // get rejected by RLS and wrongly land in the current user's
+      // dead-letter queue. Just discard it silently instead — it isn't
+      // this session's data to sync.
+      if (!currentUserId || entry.payload.user_id !== currentUserId) {
+        await db.syncQueue.delete(entry.qid!);
+        continue;
+      }
       try {
         const { error } = await supabase.from(entry.table).upsert(entry.payload);
         if (error) {

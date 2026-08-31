@@ -44,7 +44,19 @@ export async function flushPhotoQueue(): Promise<void> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   flushing = true;
   try {
-    const entries = await db.pendingPhotoUploads.orderBy('createdAt').toArray();
+    const currentUserId = getUserId();
+    const allEntries = await db.pendingPhotoUploads.orderBy('createdAt').toArray();
+    // BUGFIX (P0 security/privacy audit): an entry left over from a
+    // DIFFERENT signed-in user (see wipeLocalDatabase() in db/dexie.ts
+    // for the main fix) must never be flushed under the CURRENT
+    // session — upsertRecord() below always stamps the record with
+    // whoever is CURRENTLY logged in, so flushing a stale entry here
+    // could silently reassign another user's transaction to this
+    // session's user_id, or just get rejected by RLS. Discard instead.
+    for (const entry of allEntries) {
+      if (entry.userId !== currentUserId) await db.pendingPhotoUploads.delete(entry.id!);
+    }
+    const entries = allEntries.filter((e) => e.userId === currentUserId);
     for (const entry of entries) {
       try {
         const path = `${entry.userId}/${entry.transactionId}.${entry.ext}`;

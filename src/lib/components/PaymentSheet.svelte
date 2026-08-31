@@ -1,7 +1,7 @@
 <script lang="ts">
   import BottomSheet from './BottomSheet.svelte';
   import { parseAmt, todayStr, formatRp } from '$lib/data/format';
-  import { upsertRecord } from '$lib/db/repo';
+  import { upsertRecord, atomic } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import { wallets } from '$lib/stores/data';
   import type { SyncableRecord } from '$lib/db/dexie';
@@ -68,39 +68,50 @@
       return;
     }
 
-    await upsertRecord('debt_payments', {
-      debt_id: debt.id,
-      amount,
-      date,
-      note: note.trim(),
-      wallet_id: walletId
+    // BUGFIX (audit #2, atomicity): these three writes used to run as
+    // separate upsertRecord calls. An interruption between them could
+    // leave a debt_payments row recorded with `debts.paid_amount` never
+    // actually incremented — the payment "exists" but the debt's
+    // progress bar/remaining amount doesn't reflect it — or the
+    // transactions row missing, so the wallet's balance wouldn't show
+    // the cash movement even though the debt looks paid.
+    await atomic(['debt_payments', 'debts', 'transactions'], async () => {
+      await upsertRecord('debt_payments', {
+        debt_id: debt!.id,
+        amount,
+        date,
+        note: note.trim(),
+        wallet_id: walletId
+      });
+
+      const newPaidAmount = paidSoFar + amount;
+      const nowFullyPaid = newPaidAmount >= total;
+      await upsertRecord('debts', {
+        id: debt!.id,
+        paid_amount: newPaidAmount,
+        paid: nowFullyPaid,
+        paid_date: nowFullyPaid ? date : ((debt!.paid_date as string) ?? null)
+      });
+
+      // Same as debt creation: this is a debt_transfer, not real
+      // income/expense — settling a liability/receivable isn't earning or
+      // spending. borrowed paying back = cash out; lent receiving back = cash in.
+      const direction = isLent ? 'in' : 'out';
+      await upsertRecord('transactions', {
+        type: 'debt_transfer',
+        direction,
+        amount,
+        description: isLent ? `Terima kembali dari ${debt!.name}` : `Bayar hutang ke ${debt!.name}`,
+        date,
+        wallet_id: walletId,
+        cat_id: 'debt_transfer',
+        note: note.trim() ? `[Cicilan] ${note.trim()}` : '[Cicilan hutang]',
+        photo: null,
+        debt_ref: debt!.id
+      });
     });
 
-    const newPaidAmount = paidSoFar + amount;
-    const nowFullyPaid = newPaidAmount >= total;
-    await upsertRecord('debts', {
-      id: debt.id,
-      paid_amount: newPaidAmount,
-      paid: nowFullyPaid,
-      paid_date: nowFullyPaid ? date : ((debt.paid_date as string) ?? null)
-    });
-
-    // Same as debt creation: this is a debt_transfer, not real
-    // income/expense — settling a liability/receivable isn't earning or
-    // spending. borrowed paying back = cash out; lent receiving back = cash in.
-    const direction = isLent ? 'in' : 'out';
-    await upsertRecord('transactions', {
-      type: 'debt_transfer',
-      direction,
-      amount,
-      description: isLent ? `Terima kembali dari ${debt.name}` : `Bayar hutang ke ${debt.name}`,
-      date,
-      wallet_id: walletId,
-      cat_id: 'debt_transfer',
-      note: note.trim() ? `[Cicilan] ${note.trim()}` : '[Cicilan hutang]',
-      photo: null,
-      debt_ref: debt.id
-    });
+    const nowFullyPaid = paidSoFar + amount >= total;
 
     showToast(
       nowFullyPaid
