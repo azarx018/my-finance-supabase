@@ -35,6 +35,7 @@ function buildResponseSchema(categories: CategoryOption[]) {
       date: { type: 'STRING', nullable: true },
       description: { type: 'STRING', nullable: true },
       merchant_name: { type: 'STRING', nullable: true },
+      items_list: { type: 'STRING', nullable: true },
       category_id: {
         type: 'STRING',
         enum: categories.map((c) => c.id),
@@ -51,8 +52,12 @@ Aturan HARUS diikuti:
 - "is_receipt": false kalau foto ini BUKAN struk/nota belanja yang jelas terbaca. Kalau false, isi field lain dengan null.
 - "amount": TOTAL akhir yang dibayar (bukan subtotal sebelum pajak/diskon), dalam Rupiah, angka bulat tanpa titik/koma.
 - "date": tanggal transaksi di struk, format YYYY-MM-DD. Kalau tidak terbaca jelas, isi null (JANGAN string kosong "").
-- "description": ringkasan barang/jasa yang dibeli (CONTOH: "Indomie, telur, kecap" atau "Isi bensin Pertamax" atau "Token listrik"). JANGAN isi dengan nama toko. Kalau daftar item tidak terbaca jelas (buram/terpotong), isi null (JANGAN string kosong "" dan JANGAN menebak/generic seperti "Belanja").
-- "merchant_name": nama toko/merchant, dipakai sebagai catatan terpisah, BUKAN untuk description. Kalau tidak terbaca, isi null.
+- "description": RINGKASAN SINGKAT (1-4 kata), BUKAN daftar semua barang satu-satu. Rangkum jadi kategori umum barangnya, misal kalau isinya kebanyakan makanan/minuman jadi "makanan", kalau alat/perkakas jadi "peralatan", kalau macam-macam jadi "belanjaan". Kata depannya HARUS sesuai jenis struknya:
+  - Kalau ini BARANG FISIK yang dibeli (toko/warung/minimarket/SPBU dst): awali dengan "Membeli" — contoh: "Membeli makanan", "Membeli peralatan", "Membeli belanjaan", "Membeli bensin".
+  - Kalau ini JASA/LAYANAN (rumah sakit, klinik, tagihan listrik/PDAM/internet, servis, langganan, dst — BUKAN barang fisik): JANGAN pakai "Membeli", pakai "Biaya" atau "Pembayaran" — contoh: "Biaya rumah sakit", "Pembayaran token listrik", "Biaya servis motor".
+  JANGAN sebutkan nama toko di sini (itu tugas merchant_name). Kalau tidak jelas mau dikategorikan sebagai apa (buram/terpotong), isi null — jangan menebak.
+- "merchant_name": nama toko/merchant. Kalau tidak terbaca, isi null.
+- "items_list": daftar SEMUA barang/jasa yang dibeli, dipisah koma, seperti tertulis di struk (CONTOH: "Indomie, Telur, Kecap, Sabun mandi"). Ini yang menampung rincian lengkap — description di atas cukup ringkasannya saja. Kalau daftar item tidak terbaca jelas (buram/terpotong) atau struknya cuma 1 baris jasa tanpa rincian barang, isi null — jangan menebak.
 - "category_id": pilih SATU id dari daftar kategori yang diberikan yang paling cocok dengan jenis belanja ini. Kalau tidak ada yang cocok, isi null (JANGAN string kosong "").
 
 Jangan mengarang angka atau teks yang tidak benar-benar terlihat di foto. Untuk field yang tidak ada nilainya, SELALU pakai null, JANGAN PERNAH pakai string kosong ("").`;

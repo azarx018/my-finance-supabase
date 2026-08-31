@@ -153,11 +153,14 @@
         catId = result.categoryId;
         autofilledCat = true;
       }
-      // Merchant name goes to the note field, never description (see
-      // earlier design discussion) — only when the person hasn't
-      // already typed their own note, so this never clobbers real input.
-      if (result.merchantName && !note.trim()) {
-        note = result.merchantName;
+      // Merchant name + full item list go to the note field, never
+      // description (description is a short summary now — see the
+      // "1.4.0" design discussion) — only when the person hasn't
+      // already typed their own note, so this never clobbers real
+      // input. Combined so the note reads like "Indomaret — Indomie,
+      // Telur, Kecap" instead of just the store name alone.
+      if ((result.merchantName || result.itemsList) && !note.trim()) {
+        note = [result.merchantName, result.itemsList].filter(Boolean).join(' — ');
       }
       showToast('Struk terbaca — cek dulu sebelum simpan ya', 'success');
     } catch (err) {

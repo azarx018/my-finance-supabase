@@ -11,14 +11,24 @@ export interface ProposeBudgetArgs {
   allocations: Array<{ category_id: string; amount: number }>;
 }
 
-export type AssistantResponse =
-  | { type: 'text'; text: string }
-  | { type: 'action'; action: 'propose_budget'; args: ProposeBudgetArgs };
+export interface ProposeSavingArgs {
+  name: string;
+  amount: number;
+  reasoning: string;
+  wallet_id: string | null;
+}
+
+export type AssistantAction =
+  | { action: 'propose_budget'; args: ProposeBudgetArgs }
+  | { action: 'propose_saving'; args: ProposeSavingArgs };
+
+export type AssistantResponse = { type: 'text'; text: string } | { type: 'actions'; actions: AssistantAction[] };
 
 export interface AssistantContext {
   current_month: string;
   categories: Array<{ id: string; name: string }>;
-  salary_transaction: { amount: number; date: string } | null;
+  wallets: Array<{ id: string; name: string }>;
+  salary_transaction: { amount: number; date: string; wallet_id: string | null } | null;
   avg_spending_last_3mo: Record<string, number>;
   existing_budget_this_month: Record<string, number>;
 }

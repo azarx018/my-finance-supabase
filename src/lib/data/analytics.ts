@@ -200,6 +200,7 @@ export function getAverageSpendingByCategory(transactions: SyncableRecord[], n =
 export interface SalaryTransactionInfo {
   amount: number;
   date: string; // YYYY-MM-DD
+  walletId: string | null; // which wallet the salary landed in — used to default propose_saving's source wallet
 }
 
 /**
@@ -219,7 +220,11 @@ export function findSalaryTransaction(transactions: SyncableRecord[], month: str
 
   const thisMonth = salaryTxs.find((t) => (t.date as string).startsWith(month));
   const chosen = thisMonth ?? salaryTxs[0];
-  return { amount: chosen.amount as number, date: chosen.date as string };
+  return {
+    amount: chosen.amount as number,
+    date: chosen.date as string,
+    walletId: (chosen.wallet_id as string) ?? null
+  };
 }
 
 /** Existing budget allocations for `month` — { cat_id: limit_amount }. */

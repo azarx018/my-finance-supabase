@@ -12,6 +12,7 @@ export interface ScanReceiptResult {
   date: string | null; // YYYY-MM-DD
   description: string | null;
   merchantName: string | null;
+  itemsList: string | null; // full comma-separated item list, for the note field (description is a short summary)
   categoryId: string | null;
 }
 
@@ -76,6 +77,7 @@ export async function scanReceipt(
     date: typeof data.date === 'string' && data.date ? data.date : null,
     description: typeof data.description === 'string' && data.description ? data.description : null,
     merchantName: typeof data.merchant_name === 'string' && data.merchant_name ? data.merchant_name : null,
+    itemsList: typeof data.items_list === 'string' && data.items_list ? data.items_list : null,
     categoryId: typeof data.category_id === 'string' && data.category_id ? data.category_id : null
   };
 }

@@ -1,39 +1,52 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { transactions, customCategories, budgets } from '$lib/stores/data';
+  import { transactions, customCategories, budgets, wallets } from '$lib/stores/data';
   import { session } from '$lib/stores/session';
   import { getCatList, type Cat } from '$lib/data/categories';
   import { getBudgetMonth } from '$lib/data/budget';
+  import { computeWalletStats } from '$lib/data/wallets';
   import {
     getAverageSpendingByCategory,
     findSalaryTransaction,
     getExistingBudget
   } from '$lib/data/analytics';
-  import { askAssistant, isAssistantConfigured, type ChatTurn, type ProposeBudgetArgs } from '$lib/ai/assistant';
+  import {
+    askAssistant,
+    isAssistantConfigured,
+    type ChatTurn,
+    type AssistantAction,
+    type ProposeBudgetArgs,
+    type ProposeSavingArgs
+  } from '$lib/ai/assistant';
   import { upsertRecord } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import BudgetProposalCard from '$lib/components/BudgetProposalCard.svelte';
+  import SavingProposalCard from '$lib/components/SavingProposalCard.svelte';
+
+  type ChatAction =
+    | { kind: 'propose_budget'; args: ProposeBudgetArgs; applied: boolean }
+    | { kind: 'propose_saving'; args: ProposeSavingArgs; applied: boolean };
 
   interface ChatMessage {
     id: number;
     role: 'user' | 'assistant';
     text: string;
-    action?: { type: 'propose_budget'; args: ProposeBudgetArgs; applied: boolean };
+    action?: ChatAction;
   }
 
   let messages: ChatMessage[] = [];
   let draft = '';
   let counter = 0;
   let sending = false;
+  // Tracks the amount the person last confirmed as "available" (from
+  // salary or stated manually) so BudgetProposalCard's "sisa belum
+  // dialokasikan" row has something to compare against. Best-effort: we
+  // only reliably know this when it comes from the detected salary
+  // transaction: a manually-typed number in free text isn't parsed here.
+  let lastKnownIncome: number | null = null;
 
   const assistantConfigured = isAssistantConfigured();
 
-  // Same reasoning as TxSheet's OCR button: only the parts that
-  // genuinely need Gemini require being online. This page never locks
-  // the input for that reason. There's no local-only fallback wired up
-  // yet (that's a later phase), but the online tracker stays so that
-  // logic has an obvious place to plug in without touching the rest of
-  // this page.
   let online = typeof navigator !== 'undefined' ? navigator.onLine : true;
   onMount(() => {
     const goOnline = () => (online = true);
@@ -53,21 +66,27 @@
   ];
 
   $: expenseCats = getCatList('expense', $customCategories.filter((c) => c.type === 'expense') as unknown as Cat[]);
+  $: walletStats = computeWalletStats($wallets, $transactions);
+  $: walletBalances = Object.fromEntries($wallets.map((w) => [w.id, walletStats[w.id]?.balance ?? 0]));
 
-  // History sent to the Worker each turn — kept as plain text turns
-  // (not persisted anywhere, resets on page leave per the "sementara"
-  // decision). An action message is represented by its reasoning +
-  // allocations so the model still remembers what it already proposed
-  // if the person asks to adjust it ("tabungan minimal 500rb").
   function toApiHistory(msgs: ChatMessage[]): ChatTurn[] {
-    return msgs.map((m) => ({
-      role: m.role,
-      text: m.action
-        ? `Usulan budget ${m.action.args.month}: ${m.action.args.allocations
-            .map((a) => `${a.category_id}=Rp${a.amount}`)
-            .join(', ')}. Alasan: ${m.action.args.reasoning}`
-        : m.text
-    }));
+    return msgs.map((m) => {
+      if (!m.action) return { role: m.role, text: m.text };
+      if (m.action.kind === 'propose_budget') {
+        const a = m.action.args;
+        return {
+          role: m.role,
+          text: `Usulan budget ${a.month}: ${a.allocations.map((x) => `${x.category_id}=Rp${x.amount}`).join(', ')}. Alasan: ${a.reasoning}`
+        };
+      }
+      const a = m.action.args;
+      return { role: m.role, text: `Usulan tabungan "${a.name}": Rp${a.amount}. Alasan: ${a.reasoning}` };
+    });
+  }
+
+  function actionToChatAction(a: AssistantAction): ChatAction {
+    if (a.action === 'propose_budget') return { kind: 'propose_budget', args: a.args, applied: false };
+    return { kind: 'propose_saving', args: a.args, applied: false };
   }
 
   async function send(text?: string) {
@@ -86,30 +105,32 @@
 
     try {
       const month = getBudgetMonth();
+      const salary = findSalaryTransaction($transactions, month);
+      if (salary) lastKnownIncome = salary.amount;
+
       const result = await askAssistant(
         value,
         history,
         {
           current_month: month,
           categories: expenseCats.map((c) => ({ id: c.id, name: c.name })),
-          salary_transaction: findSalaryTransaction($transactions, month),
+          wallets: $wallets.map((w) => ({ id: w.id, name: w.name as string })),
+          salary_transaction: salary ? { amount: salary.amount, date: salary.date, wallet_id: salary.walletId } : null,
           avg_spending_last_3mo: getAverageSpendingByCategory($transactions, 3),
           existing_budget_this_month: getExistingBudget($budgets, month)
         },
         token
       );
 
-      if (result.type === 'action' && result.action === 'propose_budget') {
-        messages = [
-          ...messages,
-          {
-            id: ++counter,
-            role: 'assistant',
-            text: '',
-            action: { type: 'propose_budget', args: result.args, applied: false }
-          }
-        ];
-      } else if (result.type === 'text') {
+      if (result.type === 'actions') {
+        const newMessages = result.actions.map((a) => ({
+          id: ++counter,
+          role: 'assistant' as const,
+          text: '',
+          action: actionToChatAction(a)
+        }));
+        messages = [...messages, ...newMessages];
+      } else {
         messages = [...messages, { id: ++counter, role: 'assistant', text: result.text }];
       }
     } catch (err) {
@@ -122,17 +143,15 @@
 
   async function applyBudget(messageId: number, allocations: Array<{ category_id: string; amount: number }>) {
     const msg = messages.find((m) => m.id === messageId);
-    if (!msg?.action) return;
+    if (!msg?.action || msg.action.kind !== 'propose_budget') return;
     const month = msg.action.args.month;
     try {
       for (const alloc of allocations) {
         // Reuse the existing row's id when this category already has a
         // budget for this month (→ update), otherwise let upsertRecord
         // generate a new one (→ insert). `budgets` has a
-        // unique(user_id, cat_id, month) constraint — guessing wrong
-        // here is exactly the kind of bug that caused the sync issues
-        // fixed earlier, so this mirrors BudgetSheet.svelte's own logic
-        // rather than reinventing it.
+        // unique(user_id, cat_id, month) constraint — mirrors
+        // BudgetSheet.svelte's own logic rather than reinventing it.
         const existing = $budgets.find((b) => b.month === month && b.cat_id === alloc.category_id);
         await upsertRecord('budgets', {
           id: existing?.id,
@@ -150,7 +169,63 @@
     }
   }
 
-  function dismissBudget(messageId: number) {
+  /**
+   * Creates an ACTUAL active savings goal — not a budget line (see the
+   * SAVINGS_CATEGORY_ID note in the Worker's assistant.ts for why this
+   * exists as its own action). Mirrors BucketSheet.svelte +
+   * SavingTxSheet.svelte's own submit logic exactly: a new
+   * `saving_buckets` row, a `saving_txs` deposit, and the matching
+   * `saving_transfer` transaction that keeps the wallet balance
+   * consistent — same three writes the manual "Tabung" flow does.
+   */
+  async function applySaving(messageId: number, data: { name: string; amount: number; walletId: string }) {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg?.action || msg.action.kind !== 'propose_saving') return;
+
+    const balance = walletStats[data.walletId]?.balance ?? 0;
+    if (balance < data.amount) {
+      showToast('Saldo dompet tidak cukup', 'error');
+      return;
+    }
+
+    try {
+      const bucket = await upsertRecord('saving_buckets', {
+        name: data.name,
+        emoji: '🐷',
+        target: 0,
+        status: 'active'
+      });
+      await upsertRecord('saving_txs', {
+        bucket_id: bucket.id,
+        wallet_id: data.walletId,
+        type: 'deposit',
+        amount: data.amount,
+        date: new Date().toISOString().slice(0, 10),
+        note: 'Dibuat dari Asisten AI'
+      });
+      await upsertRecord('transactions', {
+        type: 'saving_transfer',
+        direction: 'deposit',
+        amount: data.amount,
+        cat_id: 'saving_transfer',
+        description: `Tabung → ${data.name}`,
+        date: new Date().toISOString().slice(0, 10),
+        wallet_id: data.walletId,
+        note: 'Dibuat dari Asisten AI',
+        photo: null,
+        bucket_id: bucket.id
+      });
+
+      messages = messages.map((m) =>
+        m.id === messageId && m.action ? { ...m, action: { ...m.action, applied: true } } : m
+      );
+      showToast(`Tabungan "${data.name}" dibuat`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal membuat tabungan', 'error');
+    }
+  }
+
+  function dismissAction(messageId: number) {
     messages = messages.filter((m) => m.id !== messageId);
   }
 
@@ -190,7 +265,7 @@
         </div>
         <p class="text-sm font-semibold text-txt-primary">Asisten AI</p>
         <p class="text-xs text-txt-secondary max-w-[260px]">
-          Tanya soal keuanganmu, atau minta dibuatkan budget bulanan — cukup ketik kayak ngobrol biasa.
+          Tanya soal keuanganmu, atau minta dibuatkan budget & tabungan bulanan — cukup ketik kayak ngobrol biasa.
         </p>
         <div class="flex flex-col gap-2 w-full mt-2">
           {#each SUGGESTIONS as s}
@@ -206,14 +281,23 @@
     {:else}
       {#each messages as m (m.id)}
         <div class="flex {m.role === 'user' ? 'justify-end' : 'justify-start'}">
-          {#if m.action?.type === 'propose_budget'}
+          {#if m.action?.kind === 'propose_budget'}
             <BudgetProposalCard
               args={m.action.args}
               categories={$customCategories.filter((c) => c.type === 'expense') as unknown as Cat[]}
-              availableIncome={null}
+              availableIncome={lastKnownIncome}
               applied={m.action.applied}
               onApply={(allocations) => applyBudget(m.id, allocations)}
-              onDismiss={() => dismissBudget(m.id)}
+              onDismiss={() => dismissAction(m.id)}
+            />
+          {:else if m.action?.kind === 'propose_saving'}
+            <SavingProposalCard
+              args={m.action.args}
+              wallets={$wallets}
+              {walletBalances}
+              applied={m.action.applied}
+              onApply={(data) => applySaving(m.id, data)}
+              onDismiss={() => dismissAction(m.id)}
             />
           {:else}
             <div

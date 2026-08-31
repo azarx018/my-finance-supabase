@@ -24,19 +24,3 @@ SUPABASE_URL = "https://fwvsjtopghzmubhzlyae.supabase.co"
 # Asisten AI) — per Agustus 2026: gemini-2.5-flash, gemini-2.0-flash,
 # gemini-3.1-flash-lite sudah dikonfirmasi mendukung.
 GEMINI_MODELS = "gemini-3-flash-preview,gemini-3.5-flash,gemini-3.1-flash-lite"
-
-[observability]
-enabled = false
-head_sampling_rate = 1
-redact_query_string = false
-
-[observability.logs]
-enabled = true
-head_sampling_rate = 1
-persist = true
-invocation_logs = true
-
-[observability.traces]
-enabled = false
-persist = true
-head_sampling_rate = 1

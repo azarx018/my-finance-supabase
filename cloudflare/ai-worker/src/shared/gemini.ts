@@ -77,8 +77,15 @@ export function extractText(response: GeminiRawResponse): string | null {
   return response.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text ?? null;
 }
 
-export function extractFunctionCall(
-  response: GeminiRawResponse
-): { name: string; args: Record<string, unknown> } | null {
-  return response.candidates?.[0]?.content?.parts?.find((p) => p.functionCall)?.functionCall ?? null;
+/**
+ * Returns EVERY function call in the response, not just the first.
+ * Gemini can decide a single turn needs more than one action — e.g.
+ * "bikinin budget dari gaji, sisihkan juga buat tabungan" naturally
+ * wants both propose_budget AND propose_saving called together, rather
+ * than forcing the person to ask twice.
+ */
+export function extractFunctionCalls(response: GeminiRawResponse): Array<{ name: string; args: Record<string, unknown> }> {
+  return (response.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.functionCall)
+    .filter((fc): fc is { name: string; args: Record<string, unknown> } => Boolean(fc));
 }
