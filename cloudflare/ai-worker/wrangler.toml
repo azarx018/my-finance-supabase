@@ -23,7 +23,7 @@ SUPABASE_URL = "https://fwvsjtopghzmubhzlyae.supabase.co"
 # Hanya masukkan model yang MENDUKUNG function calling (dipakai fitur
 # Asisten AI) — per Agustus 2026: gemini-2.5-flash, gemini-2.0-flash,
 # gemini-3.1-flash-lite sudah dikonfirmasi mendukung.
-GEMINI_MODELS = "gemini-3-flash-preview,gemini-3.5-flash,gemini-3.1-flash-lite"
+GEMINI_MODELS = "gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.6-flash,gemini-3.7-flash"
 
 [observability]
 enabled = false
