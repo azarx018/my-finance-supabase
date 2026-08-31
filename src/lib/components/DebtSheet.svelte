@@ -49,6 +49,19 @@
       showToast('Jatuh tempo tidak boleh kosong', 'error');
       return;
     }
+    // BUGFIX: TxSheet/SavingTxSheet/PaymentSheet all already refuse to
+    // submit without a wallet picked — this form was the one place that
+    // didn't, so submitting with zero wallets ever created wrote
+    // wallet_id: '' (empty string) into a `uuid` column. Postgres
+    // rejects that outright (invalid input syntax for type uuid), so
+    // the debt got stuck in the local sync queue forever, AND since
+    // nothing pointed at a real wallet, the debt never affected "Saldo
+    // Kekayaan" even locally — silently looking like the debt just
+    // didn't count for anything.
+    if (!walletId) {
+      showToast('Pilih dompet dulu', 'error');
+      return;
+    }
 
     if (editing) {
       const changed =
@@ -212,6 +225,11 @@
           </button>
         {/each}
       </div>
+      {#if $wallets.length === 0}
+        <p class="text-[11px] mt-1.5" style="color: var(--expense)">
+          Belum ada dompet — bikin dompet dulu di halaman Dompet sebelum mencatat hutang/piutang.
+        </p>
+      {/if}
     </div>
 
     <textarea
