@@ -94,6 +94,22 @@ function buildTools(
   const walletIds = wallets.map((w) => w.id);
   const debtIds = debts.map((d) => d.id);
 
+  // BUGFIX: an `enum` with zero allowed values (e.g. `walletIds` when
+  // the person has no wallets yet, or `debtIds` with no active debts)
+  // is what tripped this up — Gemini's function-declaration schema
+  // rejects a STRING property whose enum is empty, which failed the
+  // ENTIRE request (400, not the 429 the model-rotation fallback knows
+  // how to route around) before the model ever got a chance to decide
+  // anything. Every tool call site below only spreads `enum` in when
+  // there's at least one real value to offer — this is EXACTLY the
+  // "0 wallets" case the person was told to go test, so it needed to
+  // degrade gracefully, not 502 the whole endpoint.
+  const walletIdSchema = (description: string) => ({
+    type: 'STRING',
+    description,
+    ...(walletIds.length > 0 ? { enum: walletIds } : {})
+  });
+
   return [
     {
       functionDeclarations: [
@@ -111,7 +127,10 @@ function buildTools(
                 items: {
                   type: 'OBJECT',
                   properties: {
-                    category_id: { type: 'STRING', enum: budgetCategoryIds },
+                    category_id: {
+                      type: 'STRING',
+                      ...(budgetCategoryIds.length > 0 ? { enum: budgetCategoryIds } : {})
+                    },
                     amount: { type: 'NUMBER' }
                   },
                   required: ['category_id', 'amount']
@@ -132,10 +151,9 @@ function buildTools(
               amount: { type: 'NUMBER' },
               reasoning: { type: 'STRING', description: '1 kalimat alasan singkat, Bahasa Indonesia' },
               wallet_id: {
-                type: 'STRING',
-                description:
-                  'Dompet SUMBER dananya. Kalau ada info dompet gaji di konteks, pakai itu. Kalau tidak yakin, boleh null biar user pilih sendiri.',
-                enum: walletIds,
+                ...walletIdSchema(
+                  'Dompet SUMBER dananya. Kalau ada info dompet gaji di konteks, pakai itu. Kalau tidak yakin, boleh null biar user pilih sendiri.'
+                ),
                 nullable: true
               }
             },
@@ -159,27 +177,27 @@ function buildTools(
         {
           name: 'propose_transaction',
           description:
-            'Catat SATU transaksi pemasukan/pengeluaran dari kalimat bebas user. Kalau user menyebut beberapa transaksi sekaligus dalam satu pesan, panggil tool ini BERKALI-KALI (sekali per transaksi) dalam balasan yang sama.',
+            'Catat SATU transaksi pemasukan/pengeluaran dari kalimat bebas user. Kalau user menyebut beberapa transaksi sekaligus dalam satu pesan, panggil tool ini BERKALI-KALI (sekali per transaksi) dalam balasan yang sama. JANGAN panggil ini kalau belum ada dompet sama sekali — lihat aturan prioritas dompet.',
           parameters: {
             type: 'OBJECT',
             properties: {
               type: { type: 'STRING', enum: ['income', 'expense'] },
               amount: { type: 'NUMBER' },
               description: { type: 'STRING', description: 'Ringkasan singkat, misal "Makan siang", "Isi bensin"' },
-              category_id: { type: 'STRING', enum: allCategoryIds },
-              date: { type: 'STRING', description: 'Format YYYY-MM-DD, resolve "kemarin"/"tadi" dari tanggal hari ini yang diberikan' },
-              wallet_id: {
+              category_id: {
                 type: 'STRING',
-                enum: walletIds,
-                description: 'WAJIB sudah jelas sebelum memanggil tool ini — lihat aturan prioritas dompet'
-              }
+                ...(allCategoryIds.length > 0 ? { enum: allCategoryIds } : {})
+              },
+              date: { type: 'STRING', description: 'Format YYYY-MM-DD, resolve "kemarin"/"tadi" dari tanggal hari ini yang diberikan' },
+              wallet_id: walletIdSchema('WAJIB sudah jelas sebelum memanggil tool ini — lihat aturan prioritas dompet')
             },
             required: ['type', 'amount', 'description', 'date', 'wallet_id']
           }
         },
         {
           name: 'propose_debt',
-          description: 'Catat hutang baru (user meminjam) atau piutang baru (user meminjamkan).',
+          description:
+            'Catat hutang baru (user meminjam) atau piutang baru (user meminjamkan). JANGAN panggil ini kalau belum ada dompet sama sekali — lihat aturan prioritas dompet.',
           parameters: {
             type: 'OBJECT',
             properties: {
@@ -187,11 +205,7 @@ function buildTools(
               name: { type: 'STRING', description: 'Nama orang/pihak terkait' },
               amount: { type: 'NUMBER' },
               due_date: { type: 'STRING', nullable: true, description: 'Format YYYY-MM-DD, null kalau tidak disebutkan' },
-              wallet_id: {
-                type: 'STRING',
-                enum: walletIds,
-                description: 'WAJIB sudah jelas sebelum memanggil tool ini — lihat aturan prioritas dompet'
-              },
+              wallet_id: walletIdSchema('WAJIB sudah jelas sebelum memanggil tool ini — lihat aturan prioritas dompet'),
               reasoning: { type: 'STRING', description: '1 kalimat singkat, Bahasa Indonesia' }
             },
             required: ['dtype', 'name', 'amount', 'wallet_id', 'reasoning']
@@ -200,17 +214,16 @@ function buildTools(
         {
           name: 'propose_debt_payment',
           description:
-            'Catat pembayaran/pelunasan (sebagian atau penuh) atas hutang/piutang yang SUDAH ADA. Cocokkan nama yang disebut user ke salah satu id di daftar hutang aktif — kalau ada lebih dari satu yang mirip/ambigu, JANGAN panggil tool ini, tanya dulu lewat teks biasa untuk klarifikasi.',
+            'Catat pembayaran/pelunasan (sebagian atau penuh) atas hutang/piutang yang SUDAH ADA. Cocokkan nama yang disebut user ke salah satu id di daftar hutang aktif — kalau ada lebih dari satu yang mirip/ambigu, JANGAN panggil tool ini, tanya dulu lewat teks biasa untuk klarifikasi. JANGAN panggil ini kalau tidak ada hutang aktif sama sekali.',
           parameters: {
             type: 'OBJECT',
             properties: {
-              debt_id: { type: 'STRING', enum: debtIds },
-              amount: { type: 'NUMBER' },
-              wallet_id: {
+              debt_id: {
                 type: 'STRING',
-                enum: walletIds,
-                description: 'WAJIB sudah jelas sebelum memanggil tool ini — lihat aturan prioritas dompet'
+                ...(debtIds.length > 0 ? { enum: debtIds } : {})
               },
+              amount: { type: 'NUMBER' },
+              wallet_id: walletIdSchema('WAJIB sudah jelas sebelum memanggil tool ini — lihat aturan prioritas dompet'),
               reasoning: { type: 'STRING', description: '1 kalimat singkat, Bahasa Indonesia' }
             },
             required: ['debt_id', 'amount', 'wallet_id', 'reasoning']
@@ -365,7 +378,15 @@ export async function handleAssistant(request: Request, env: Env, cors: Record<s
     if (!text) throw new Error('Gemini tidak mengembalikan jawaban');
     return json({ type: 'text', text }, 200, cors);
   } catch (err) {
-    console.error('[assistant] Gemini call failed:', err);
+    // BUGFIX: `console.error('[assistant] ...', err)` with 2 args used to
+    // get logged by Workers Logs as just the label + stack, with the
+    // actual error MESSAGE (the one part that actually says what went
+    // wrong) missing entirely — that's why the first real failure here
+    // was undiagnosable from the log alone. Interpolating the message
+    // into the single string argument guarantees it survives into the
+    // log regardless of how multi-arg console.error gets serialized.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[assistant] Gemini call failed: ${message}`);
     return json({ error: 'Asisten lagi nggak bisa diakses, coba lagi nanti' }, 502, cors);
   }
 }

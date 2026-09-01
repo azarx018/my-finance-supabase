@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { transactions, customCategories, budgets, wallets, debts } from '$lib/stores/data';
   import { session } from '$lib/stores/session';
-  import { getCatList, type Cat } from '$lib/data/categories';
+  import { getCatList, type Cat, WALLET_EMOJIS } from '$lib/data/categories';
   import { getBudgetMonth } from '$lib/data/budget';
   import { computeWalletStats } from '$lib/data/wallets';
   import { todayStr } from '$lib/data/format';
@@ -49,6 +49,12 @@
     role: 'user' | 'assistant';
     text: string;
     action?: ChatAction;
+    // Set only when this message was one of SEVERAL actions the
+    // assistant proposed in the same reply (e.g. "catetin: makan 20rb,
+    // ngopi 15rb" → 2 propose_transaction calls at once). Lets the UI
+    // group them under one "Terapkan Semua" button instead of forcing
+    // a click per card.
+    batchId?: number;
   }
 
   let messages: ChatMessage[] = [];
@@ -174,11 +180,16 @@
       );
 
       if (result.type === 'actions') {
+        // Only tag a batchId when there's actually more than one action
+        // to group — a single action never needs a "Terapkan Semua"
+        // button next to its own individual one.
+        const batchId = result.actions.length > 1 ? ++counter : undefined;
         const newMessages = result.actions.map((a) => ({
           id: ++counter,
           role: 'assistant' as const,
           text: '',
-          action: actionToChatAction(a)
+          action: actionToChatAction(a),
+          batchId
         }));
         messages = [...messages, ...newMessages];
       } else {
@@ -402,6 +413,81 @@
     messages = messages.filter((m) => m.id !== messageId);
   }
 
+  // Whether `m` is the LAST message rendered from its batch — the
+  // "Terapkan Semua" button renders once, right after that one, rather
+  // than after every card in the group.
+  function isLastOfBatch(m: ChatMessage): boolean {
+    if (m.batchId == null) return false;
+    const batchMsgs = messages.filter((x) => x.batchId === m.batchId);
+    return batchMsgs[batchMsgs.length - 1]?.id === m.id;
+  }
+
+  function batchUnappliedCount(batchId: number): number {
+    return messages.filter((x) => x.batchId === batchId && x.action && !x.action.applied).length;
+  }
+
+  /**
+   * Applies every not-yet-applied card in a batch using the AI's
+   * ORIGINAL proposed values — deliberately not whatever a person may
+   * have half-edited into an individual card's inputs, since this
+   * button is the "I trust all of these as-is, just do it" shortcut.
+   * Anyone who wants to tweak one specific item first can still just
+   * edit that one card and apply it individually instead of using this
+   * button — both paths stay available side by side.
+   */
+  async function applyBatch(batchId: number) {
+    const batchMsgs = messages.filter((m) => m.batchId === batchId && m.action && !m.action.applied);
+    for (const m of batchMsgs) {
+      if (!m.action) continue;
+      const a = m.action;
+      switch (a.kind) {
+        case 'propose_budget':
+          await applyBudget(m.id, a.args.allocations);
+          break;
+        case 'propose_saving': {
+          const walletId = a.args.wallet_id ?? $wallets[0]?.id;
+          if (!walletId) {
+            showToast(`Tidak ada dompet untuk tabungan "${a.args.name}"`, 'error');
+            continue;
+          }
+          await applySaving(m.id, { name: a.args.name, amount: a.args.amount, walletId });
+          break;
+        }
+        case 'propose_wallet':
+          await applyWallet(m.id, { name: a.args.name, emoji: WALLET_EMOJIS[0], initialBalance: a.args.initial_balance });
+          break;
+        case 'propose_transaction':
+          await applyTransaction(m.id, {
+            type: a.args.type,
+            amount: a.args.amount,
+            description: a.args.description,
+            categoryId: a.args.category_id,
+            date: a.args.date,
+            walletId: a.args.wallet_id
+          });
+          break;
+        case 'propose_debt':
+          await applyDebt(m.id, {
+            dtype: a.args.dtype,
+            name: a.args.name,
+            amount: a.args.amount,
+            dueDate: a.args.due_date ?? todayStr(),
+            walletId: a.args.wallet_id
+          });
+          break;
+        case 'propose_debt_payment': {
+          const matchedDebt = activeDebts.find((d) => d.id === a.args.debt_id);
+          if (!matchedDebt) {
+            showToast('Salah satu hutang di batch ini sudah tidak ditemukan', 'error');
+            continue;
+          }
+          await applyDebtPayment(m.id, matchedDebt, { amount: a.args.amount, walletId: a.args.wallet_id });
+          break;
+        }
+      }
+    }
+  }
+
   function onKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -524,6 +610,17 @@
             </div>
           {/if}
         </div>
+        {#if isLastOfBatch(m) && m.batchId != null && batchUnappliedCount(m.batchId) > 1}
+          <div class="flex justify-start">
+            <button
+              on:click={() => applyBatch(m.batchId ?? -1)}
+              class="text-xs font-medium py-2 px-4 rounded-lg text-white"
+              style="background: var(--primary)"
+            >
+              ✅ Terapkan Semua ({batchUnappliedCount(m.batchId)})
+            </button>
+          </div>
+        {/if}
       {/each}
       {#if sending}
         <div class="flex justify-start">

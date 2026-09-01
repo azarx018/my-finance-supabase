@@ -42,10 +42,31 @@ export async function callGeminiWithFallback(
 
   for (const model of models) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // Extended-thinking models (name contains "thinking") generate
+    // hidden reasoning tokens before answering, which is what makes them
+    // noticeably slower for a chat that just needs quick tool calls or
+    // short replies — not a bug, just a mode this app doesn't need.
+    // `thinkingBudget: 0` turns that off. Scoped to ONLY models whose
+    // name says "thinking" rather than applied to every model in the
+    // rotation: `thinkingConfig` isn't a field every Gemini model
+    // recognizes, and sending it to one that doesn't could 400 the
+    // whole request — the exact same class of bug as the empty-enum
+    // issue fixed in assistant.ts, so it gets the same "only add it
+    // where it's actually meaningful" treatment.
+    const body = model.includes('thinking')
+      ? {
+          ...requestBody,
+          generationConfig: {
+            ...((requestBody.generationConfig as Record<string, unknown>) ?? {}),
+            thinkingConfig: { thinkingBudget: 0 }
+          }
+        }
+      : requestBody;
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(body)
     });
 
     if (res.ok) {
