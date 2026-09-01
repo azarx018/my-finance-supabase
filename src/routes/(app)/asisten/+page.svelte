@@ -1,16 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { transactions, customCategories, budgets, wallets } from '$lib/stores/data';
+  import { transactions, customCategories, budgets, wallets, debts } from '$lib/stores/data';
   import { session } from '$lib/stores/session';
   import { getCatList, type Cat } from '$lib/data/categories';
   import { getBudgetMonth } from '$lib/data/budget';
   import { computeWalletStats } from '$lib/data/wallets';
+  import { todayStr } from '$lib/data/format';
   import {
     getAverageSpendingByCategory,
     findSalaryTransaction,
     getExistingBudget,
     getSpendingSummary,
-    getPreviousMonth
+    getPreviousMonth,
+    getActiveDebts,
+    type ActiveDebtInfo
   } from '$lib/data/analytics';
   import {
     askAssistant,
@@ -18,16 +21,28 @@
     type ChatTurn,
     type AssistantAction,
     type ProposeBudgetArgs,
-    type ProposeSavingArgs
+    type ProposeSavingArgs,
+    type ProposeWalletArgs,
+    type ProposeTransactionArgs,
+    type ProposeDebtArgs,
+    type ProposeDebtPaymentArgs
   } from '$lib/ai/assistant';
   import { upsertRecord, atomic } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import BudgetProposalCard from '$lib/components/BudgetProposalCard.svelte';
   import SavingProposalCard from '$lib/components/SavingProposalCard.svelte';
+  import WalletProposalCard from '$lib/components/WalletProposalCard.svelte';
+  import TransactionProposalCard from '$lib/components/TransactionProposalCard.svelte';
+  import DebtProposalCard from '$lib/components/DebtProposalCard.svelte';
+  import DebtPaymentProposalCard from '$lib/components/DebtPaymentProposalCard.svelte';
 
   type ChatAction =
     | { kind: 'propose_budget'; args: ProposeBudgetArgs; applied: boolean }
-    | { kind: 'propose_saving'; args: ProposeSavingArgs; applied: boolean };
+    | { kind: 'propose_saving'; args: ProposeSavingArgs; applied: boolean }
+    | { kind: 'propose_wallet'; args: ProposeWalletArgs; applied: boolean }
+    | { kind: 'propose_transaction'; args: ProposeTransactionArgs; applied: boolean }
+    | { kind: 'propose_debt'; args: ProposeDebtArgs; applied: boolean }
+    | { kind: 'propose_debt_payment'; args: ProposeDebtPaymentArgs; applied: boolean };
 
   interface ChatMessage {
     id: number;
@@ -63,32 +78,62 @@
 
   const SUGGESTIONS = [
     'Bikinin budget dari gaji bulan ini',
-    'Pengeluaran terbesar bulan ini apa?',
-    'Kenapa pengeluaran gue naik?'
+    'Catetin: makan siang 20rb, ngopi 15rb',
+    'Pengeluaran terbesar bulan ini apa?'
   ];
 
-  $: expenseCats = getCatList('expense', $customCategories.filter((c) => c.type === 'expense') as unknown as Cat[]);
+  $: expenseCatsList = getCatList('expense', $customCategories.filter((c) => c.type === 'expense') as unknown as Cat[]);
+  $: incomeCatsList = getCatList('income', $customCategories.filter((c) => c.type === 'income') as unknown as Cat[]);
   $: walletStats = computeWalletStats($wallets, $transactions);
   $: walletBalances = Object.fromEntries($wallets.map((w) => [w.id, walletStats[w.id]?.balance ?? 0]));
+  $: activeDebts = getActiveDebts($debts);
+  $: month = getBudgetMonth();
+  $: existingBudgetThisMonth = getExistingBudget($budgets, month);
+  $: spendingThisMonth = getSpendingSummary($transactions, month);
+  $: spentByCategory = Object.fromEntries(spendingThisMonth.by_category.map((c) => [c.cat_id, c.amount]));
 
   function toApiHistory(msgs: ChatMessage[]): ChatTurn[] {
     return msgs.map((m) => {
       if (!m.action) return { role: m.role, text: m.text };
-      if (m.action.kind === 'propose_budget') {
-        const a = m.action.args;
-        return {
-          role: m.role,
-          text: `Usulan budget ${a.month}: ${a.allocations.map((x) => `${x.category_id}=Rp${x.amount}`).join(', ')}. Alasan: ${a.reasoning}`
-        };
+      const a = m.action;
+      switch (a.kind) {
+        case 'propose_budget':
+          return {
+            role: m.role,
+            text: `Usulan budget ${a.args.month}: ${a.args.allocations.map((x) => `${x.category_id}=Rp${x.amount}`).join(', ')}. Alasan: ${a.args.reasoning}`
+          };
+        case 'propose_saving':
+          return { role: m.role, text: `Usulan tabungan "${a.args.name}": Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
+        case 'propose_wallet':
+          return { role: m.role, text: `Usulan dompet baru "${a.args.name}" saldo awal Rp${a.args.initial_balance}.` };
+        case 'propose_transaction':
+          return {
+            role: m.role,
+            text: `Usulan transaksi ${a.args.type}: ${a.args.description} Rp${a.args.amount} (${a.args.category_id}, ${a.args.date}).`
+          };
+        case 'propose_debt':
+          return { role: m.role, text: `Usulan ${a.args.dtype} "${a.args.name}" Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
+        case 'propose_debt_payment':
+          return { role: m.role, text: `Usulan bayar hutang id ${a.args.debt_id} Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
       }
-      const a = m.action.args;
-      return { role: m.role, text: `Usulan tabungan "${a.name}": Rp${a.amount}. Alasan: ${a.reasoning}` };
     });
   }
 
   function actionToChatAction(a: AssistantAction): ChatAction {
-    if (a.action === 'propose_budget') return { kind: 'propose_budget', args: a.args, applied: false };
-    return { kind: 'propose_saving', args: a.args, applied: false };
+    switch (a.action) {
+      case 'propose_budget':
+        return { kind: 'propose_budget', args: a.args, applied: false };
+      case 'propose_saving':
+        return { kind: 'propose_saving', args: a.args, applied: false };
+      case 'propose_wallet':
+        return { kind: 'propose_wallet', args: a.args, applied: false };
+      case 'propose_transaction':
+        return { kind: 'propose_transaction', args: a.args, applied: false };
+      case 'propose_debt':
+        return { kind: 'propose_debt', args: a.args, applied: false };
+      case 'propose_debt_payment':
+        return { kind: 'propose_debt_payment', args: a.args, applied: false };
+    }
   }
 
   async function send(text?: string) {
@@ -106,7 +151,6 @@
     sending = true;
 
     try {
-      const month = getBudgetMonth();
       const salary = findSalaryTransaction($transactions, month);
       if (salary) lastKnownIncome = salary.amount;
 
@@ -114,13 +158,16 @@
         value,
         history,
         {
+          today: todayStr(),
           current_month: month,
-          categories: expenseCats.map((c) => ({ id: c.id, name: c.name })),
+          expense_categories: expenseCatsList.map((c) => ({ id: c.id, name: c.name })),
+          income_categories: incomeCatsList.map((c) => ({ id: c.id, name: c.name })),
           wallets: $wallets.map((w) => ({ id: w.id, name: w.name as string })),
+          debts: activeDebts,
           salary_transaction: salary ? { amount: salary.amount, date: salary.date, wallet_id: salary.walletId } : null,
           avg_spending_last_3mo: getAverageSpendingByCategory($transactions, 3),
-          existing_budget_this_month: getExistingBudget($budgets, month),
-          spending_this_month: getSpendingSummary($transactions, month),
+          existing_budget_this_month: existingBudgetThisMonth,
+          spending_this_month: spendingThisMonth,
           spending_last_month: getSpendingSummary($transactions, getPreviousMonth(month))
         },
         token
@@ -145,10 +192,16 @@
     }
   }
 
+  function markApplied(messageId: number) {
+    messages = messages.map((m) =>
+      m.id === messageId && m.action ? { ...m, action: { ...m.action, applied: true } } : m
+    );
+  }
+
   async function applyBudget(messageId: number, allocations: Array<{ category_id: string; amount: number }>) {
     const msg = messages.find((m) => m.id === messageId);
     if (!msg?.action || msg.action.kind !== 'propose_budget') return;
-    const month = msg.action.args.month;
+    const budgetMonth = msg.action.args.month;
     try {
       // BUGFIX (audit #2, atomicity): each budget row is independent
       // (unlike saving/debt, they don't reference each other), but a
@@ -159,23 +212,16 @@
       // succeeds or the budget stays exactly as it was before.
       await atomic(['budgets'], async () => {
         for (const alloc of allocations) {
-          // Reuse the existing row's id when this category already has a
-          // budget for this month (→ update), otherwise let upsertRecord
-          // generate a new one (→ insert). `budgets` has a
-          // unique(user_id, cat_id, month) constraint — mirrors
-          // BudgetSheet.svelte's own logic rather than reinventing it.
-          const existing = $budgets.find((b) => b.month === month && b.cat_id === alloc.category_id);
+          const existing = $budgets.find((b) => b.month === budgetMonth && b.cat_id === alloc.category_id);
           await upsertRecord('budgets', {
             id: existing?.id,
             cat_id: alloc.category_id,
             limit_amount: alloc.amount,
-            month
+            month: budgetMonth
           });
         }
       });
-      messages = messages.map((m) =>
-        m.id === messageId && m.action ? { ...m, action: { ...m.action, applied: true } } : m
-      );
+      markApplied(messageId);
       showToast('Budget diterapkan');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal menerapkan budget', 'error');
@@ -186,26 +232,15 @@
    * Creates an ACTUAL active savings goal — not a budget line (see the
    * SAVINGS_CATEGORY_ID note in the Worker's assistant.ts for why this
    * exists as its own action). Mirrors BucketSheet.svelte +
-   * SavingTxSheet.svelte's own submit logic exactly: a new
-   * `saving_buckets` row, a `saving_txs` deposit, and the matching
-   * `saving_transfer` transaction that keeps the wallet balance
-   * consistent — same three writes the manual "Tabung" flow does.
+   * SavingTxSheet.svelte's own submit logic exactly.
    */
   async function applySaving(messageId: number, data: { name: string; amount: number; walletId: string }) {
-    const msg = messages.find((m) => m.id === messageId);
-    if (!msg?.action || msg.action.kind !== 'propose_saving') return;
-
     const balance = walletStats[data.walletId]?.balance ?? 0;
     if (balance < data.amount) {
       showToast('Saldo dompet tidak cukup', 'error');
       return;
     }
-
     try {
-      // BUGFIX (audit #2, atomicity): same risk as SavingTxSheet's
-      // manual deposit flow — bucket + saving_tx + transaction must land
-      // together or not at all, otherwise the money could count as both
-      // still-in-wallet and already-in-the-bucket.
       await atomic(['saving_buckets', 'saving_txs', 'transactions'], async () => {
         const bucket = await upsertRecord('saving_buckets', {
           name: data.name,
@@ -218,7 +253,7 @@
           wallet_id: data.walletId,
           type: 'deposit',
           amount: data.amount,
-          date: new Date().toISOString().slice(0, 10),
+          date: todayStr(),
           note: 'Dibuat dari Asisten AI'
         });
         await upsertRecord('transactions', {
@@ -227,20 +262,139 @@
           amount: data.amount,
           cat_id: 'saving_transfer',
           description: `Tabung → ${data.name}`,
-          date: new Date().toISOString().slice(0, 10),
+          date: todayStr(),
           wallet_id: data.walletId,
           note: 'Dibuat dari Asisten AI',
           photo: null,
           bucket_id: bucket.id
         });
       });
-
-      messages = messages.map((m) =>
-        m.id === messageId && m.action ? { ...m, action: { ...m.action, applied: true } } : m
-      );
+      markApplied(messageId);
       showToast(`Tabungan "${data.name}" dibuat`);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal membuat tabungan', 'error');
+    }
+  }
+
+  async function applyWallet(messageId: number, data: { name: string; emoji: string; initialBalance: number }) {
+    try {
+      await upsertRecord('wallets', { name: data.name, emoji: data.emoji, initial_balance: data.initialBalance });
+      markApplied(messageId);
+      showToast(`Dompet "${data.name}" dibuat`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal membuat dompet', 'error');
+    }
+  }
+
+  async function applyTransaction(
+    messageId: number,
+    data: { type: 'income' | 'expense'; amount: number; description: string; categoryId: string; date: string; walletId: string }
+  ) {
+    try {
+      await upsertRecord('transactions', {
+        type: data.type,
+        amount: data.amount,
+        description: data.description,
+        cat_id: data.categoryId,
+        date: data.date,
+        wallet_id: data.walletId,
+        note: 'Dibuat dari Asisten AI',
+        photo: null
+      });
+      markApplied(messageId);
+      showToast('Transaksi dicatat');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mencatat transaksi', 'error');
+    }
+  }
+
+  /** Mirrors DebtSheet.svelte's create-new-debt flow exactly (2 tables, atomic). */
+  async function applyDebt(
+    messageId: number,
+    data: { dtype: 'borrowed' | 'lent'; name: string; amount: number; dueDate: string; walletId: string }
+  ) {
+    try {
+      await atomic(['debts', 'transactions'], async () => {
+        const debt = await upsertRecord('debts', {
+          name: data.name,
+          amount: data.amount,
+          due_date: data.dueDate,
+          note: '',
+          dtype: data.dtype,
+          wallet_id: data.walletId,
+          paid: false,
+          paid_date: null,
+          paid_amount: 0
+        });
+        const direction = data.dtype === 'borrowed' ? 'in' : 'out';
+        await upsertRecord('transactions', {
+          type: 'debt_transfer',
+          direction,
+          amount: data.amount,
+          description: data.dtype === 'borrowed' ? `Hutang dari ${data.name}` : `Pinjaman ke ${data.name}`,
+          date: todayStr(),
+          wallet_id: data.walletId,
+          cat_id: 'debt_transfer',
+          note: '[Otomatis] Dibuat dari Asisten AI',
+          photo: null,
+          debt_ref: debt.id
+        });
+      });
+      markApplied(messageId);
+      showToast(data.dtype === 'borrowed' ? 'Hutang dicatat' : 'Piutang dicatat');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mencatat hutang', 'error');
+    }
+  }
+
+  /** Mirrors PaymentSheet.svelte's payment flow exactly (3 tables, atomic). */
+  async function applyDebtPayment(messageId: number, debt: ActiveDebtInfo, data: { amount: number; walletId: string }) {
+    const fullDebt = $debts.find((d) => d.id === debt.id);
+    if (!fullDebt) {
+      showToast('Hutang ini sudah tidak ditemukan', 'error');
+      return;
+    }
+    try {
+      const total = fullDebt.amount as number;
+      const paidSoFar = (fullDebt.paid_amount as number) || 0;
+      const isLent = debt.dtype === 'lent';
+
+      await atomic(['debt_payments', 'debts', 'transactions'], async () => {
+        await upsertRecord('debt_payments', {
+          debt_id: debt.id,
+          amount: data.amount,
+          date: todayStr(),
+          note: 'Dibuat dari Asisten AI',
+          wallet_id: data.walletId
+        });
+
+        const newPaidAmount = paidSoFar + data.amount;
+        const nowFullyPaid = newPaidAmount >= total;
+        await upsertRecord('debts', {
+          id: debt.id,
+          paid_amount: newPaidAmount,
+          paid: nowFullyPaid,
+          paid_date: nowFullyPaid ? todayStr() : ((fullDebt.paid_date as string) ?? null)
+        });
+
+        const direction = isLent ? 'in' : 'out';
+        await upsertRecord('transactions', {
+          type: 'debt_transfer',
+          direction,
+          amount: data.amount,
+          description: isLent ? `Terima kembali dari ${debt.name}` : `Bayar hutang ke ${debt.name}`,
+          date: todayStr(),
+          wallet_id: data.walletId,
+          cat_id: 'debt_transfer',
+          note: '[Cicilan] Dibuat dari Asisten AI',
+          photo: null,
+          debt_ref: debt.id
+        });
+      });
+      markApplied(messageId);
+      showToast('Pembayaran dicatat');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mencatat pembayaran', 'error');
     }
   }
 
@@ -284,7 +438,8 @@
         </div>
         <p class="text-sm font-semibold text-txt-primary">Asisten AI</p>
         <p class="text-xs text-txt-secondary max-w-[260px]">
-          Tanya soal keuanganmu, atau minta dibuatkan budget & tabungan bulanan — cukup ketik kayak ngobrol biasa.
+          Tanya soal keuanganmu, minta dibuatkan budget/tabungan, catat transaksi/hutang, atau bayar hutang — cukup
+          ketik kayak ngobrol biasa.
         </p>
         <div class="flex flex-col gap-2 w-full mt-2">
           {#each SUGGESTIONS as s}
@@ -316,6 +471,46 @@
               {walletBalances}
               applied={m.action.applied}
               onApply={(data) => applySaving(m.id, data)}
+              onDismiss={() => dismissAction(m.id)}
+            />
+          {:else if m.action?.kind === 'propose_wallet'}
+            <WalletProposalCard
+              args={m.action.args}
+              applied={m.action.applied}
+              onApply={(data) => applyWallet(m.id, data)}
+              onDismiss={() => dismissAction(m.id)}
+            />
+          {:else if m.action?.kind === 'propose_transaction'}
+            <TransactionProposalCard
+              args={m.action.args}
+              expenseCategories={expenseCatsList}
+              incomeCategories={incomeCatsList}
+              wallets={$wallets}
+              {walletBalances}
+              existingBudget={existingBudgetThisMonth}
+              spentThisMonth={spentByCategory}
+              applied={m.action.applied}
+              onApply={(data) => applyTransaction(m.id, data)}
+              onDismiss={() => dismissAction(m.id)}
+            />
+          {:else if m.action?.kind === 'propose_debt'}
+            <DebtProposalCard
+              args={m.action.args}
+              wallets={$wallets}
+              {walletBalances}
+              applied={m.action.applied}
+              onApply={(data) => applyDebt(m.id, data)}
+              onDismiss={() => dismissAction(m.id)}
+            />
+          {:else if m.action?.kind === 'propose_debt_payment'}
+            {@const matchedDebt = activeDebts.find((d) => d.id === m.action?.args.debt_id)}
+            <DebtPaymentProposalCard
+              args={m.action.args}
+              debts={activeDebts}
+              wallets={$wallets}
+              {walletBalances}
+              applied={m.action.applied}
+              onApply={(data) => matchedDebt && applyDebtPayment(m.id, matchedDebt, data)}
               onDismiss={() => dismissAction(m.id)}
             />
           {:else}

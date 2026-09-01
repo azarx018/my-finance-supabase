@@ -18,31 +18,59 @@ export interface ProposeSavingArgs {
   wallet_id: string | null;
 }
 
+export interface ProposeWalletArgs {
+  name: string;
+  initial_balance: number;
+  reasoning: string;
+}
+
+export interface ProposeTransactionArgs {
+  type: 'income' | 'expense';
+  amount: number;
+  description: string;
+  category_id: string;
+  date: string;
+  wallet_id: string;
+}
+
+export interface ProposeDebtArgs {
+  dtype: 'borrowed' | 'lent';
+  name: string;
+  amount: number;
+  due_date: string | null;
+  wallet_id: string;
+  reasoning: string;
+}
+
+export interface ProposeDebtPaymentArgs {
+  debt_id: string;
+  amount: number;
+  wallet_id: string;
+  reasoning: string;
+}
+
 export type AssistantAction =
   | { action: 'propose_budget'; args: ProposeBudgetArgs }
-  | { action: 'propose_saving'; args: ProposeSavingArgs };
+  | { action: 'propose_saving'; args: ProposeSavingArgs }
+  | { action: 'propose_wallet'; args: ProposeWalletArgs }
+  | { action: 'propose_transaction'; args: ProposeTransactionArgs }
+  | { action: 'propose_debt'; args: ProposeDebtArgs }
+  | { action: 'propose_debt_payment'; args: ProposeDebtPaymentArgs };
 
 export type AssistantResponse = { type: 'text'; text: string } | { type: 'actions'; actions: AssistantAction[] };
 
-export interface CategorySpend {
-  cat_id: string;
-  amount: number;
-}
-
-export interface SpendingSummary {
-  total: number;
-  by_category: CategorySpend[];
-}
-
 export interface AssistantContext {
+  today: string; // YYYY-MM-DD
   current_month: string;
-  categories: Array<{ id: string; name: string }>;
+  expense_categories: Array<{ id: string; name: string }>;
+  income_categories: Array<{ id: string; name: string }>;
   wallets: Array<{ id: string; name: string }>;
+  debts: Array<{ id: string; name: string; dtype: 'borrowed' | 'lent'; remaining: number }>;
   salary_transaction: { amount: number; date: string; wallet_id: string | null } | null;
   avg_spending_last_3mo: Record<string, number>;
   existing_budget_this_month: Record<string, number>;
-  spending_this_month: SpendingSummary;
-  spending_last_month: SpendingSummary;
+  spending_this_month: { total: number; by_category: Array<{ cat_id: string; amount: number }> };
+  spending_last_month: { total: number; by_category: Array<{ cat_id: string; amount: number }> };
 }
 
 export function isAssistantConfigured(): boolean {
@@ -52,9 +80,8 @@ export function isAssistantConfigured(): boolean {
 /**
  * Sends the latest message + prior turns (session-only, never persisted
  * — see the "Fase B/C" design discussion) plus locally-computed context
- * (never raw transactions — see analytics.ts's
- * getAverageSpendingByCategory/findSalaryTransaction/getExistingBudget)
- * to the Worker's /assistant endpoint.
+ * (never raw transactions — see analytics.ts's context-building
+ * functions) to the Worker's /assistant endpoint.
  */
 export async function askAssistant(
   message: string,

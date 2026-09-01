@@ -281,3 +281,27 @@ export function getPreviousMonth(month: string): string {
   const d = new Date(y, m - 2, 1); // JS months are 0-indexed; -2 = one month before `m`
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
+
+export interface ActiveDebtInfo {
+  id: string;
+  name: string;
+  dtype: 'borrowed' | 'lent';
+  remaining: number;
+}
+
+/**
+ * Unpaid debts/receivables — context for propose_debt_payment's fuzzy
+ * name matching (see assistant.ts's system prompt). `remaining` uses
+ * the same `amount - paid_amount` calculation as hutang/+page.svelte —
+ * kept here instead of duplicated so the two never drift apart.
+ */
+export function getActiveDebts(debts: SyncableRecord[]): ActiveDebtInfo[] {
+  return debts
+    .filter((d) => !d.paid)
+    .map((d) => ({
+      id: d.id,
+      name: d.name as string,
+      dtype: d.dtype as 'borrowed' | 'lent',
+      remaining: (d.amount as number) - ((d.paid_amount as number) || 0)
+    }));
+}
