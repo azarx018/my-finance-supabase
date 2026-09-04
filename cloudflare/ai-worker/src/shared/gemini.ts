@@ -74,25 +74,14 @@ export async function callGeminiWithFallback(
       return (await res.json()) as GeminiRawResponse;
     }
 
-    // Fallback untuk error yang sifatnya sementara / quota.
-    // 429 = rate limit / quota
-    // 503 = model sedang unavailable / high demand
-    if (res.status !== 429 && res.status !== 503) {
+    if (res.status !== 429) {
       const text = await res.text().catch(() => '');
       throw new Error(`Gemini (${model}) error ${res.status}: ${text.slice(0, 300)}`);
     }
 
-    const reason = res.status === 429
-      ? 'kena limit kuota (429)'
-      : 'sedang unavailable/high demand (503)';
-
-    console.warn(
-      `[gemini] ${model} ${reason} — coba model berikutnya di rotasi...`
-    );
-
-    lastError = new Error(
-      `Semua model di rotasi gagal (terakhir dicoba: ${model}, status: ${res.status})`
-    );
+    console.warn(`[gemini] ${model} kena limit kuota (429) — coba model berikutnya di rotasi...`);
+    lastError = new Error(`Semua model di rotasi kena limit kuota (terakhir dicoba: ${model})`);
+  }
 
   throw lastError ?? new Error('Daftar model Gemini kosong');
 }
