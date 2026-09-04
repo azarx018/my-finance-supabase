@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { transactions, customCategories, budgets, wallets, debts, assistantMemory } from '$lib/stores/data';
   import { session, getUserId } from '$lib/stores/session';
   import { getCatList, type Cat, WALLET_EMOJIS } from '$lib/data/categories';
@@ -60,6 +60,8 @@
   let draft = '';
   let sending = false;
   let historyLoaded = false;
+  let scrollContainer: HTMLDivElement;
+  let textareaEl: HTMLTextAreaElement;
   // Tracks the amount the person last confirmed as "available" (from
   // salary or stated manually) so BudgetProposalCard's "sisa belum
   // dialokasikan" row has something to compare against. Best-effort: we
@@ -118,6 +120,29 @@
   $: spendingThisMonth = getSpendingSummary($transactions, month);
   $: spentByCategory = Object.fromEntries(spendingThisMonth.by_category.map((c) => [c.cat_id, c.amount]));
   $: memoryList = $assistantMemory.map((m) => m.content as string);
+
+  // Auto-scroll: whenever the message list changes (new user message, AI
+  // reply, an action card, or the "Mengetik…" indicator appearing) or
+  // history finishes loading on open, snap to the bottom. `tick()`
+  // waits for Svelte to actually paint the new content first —
+  // otherwise `scrollHeight` would still reflect the shorter, pre-update
+  // layout and the scroll would land short.
+  async function scrollToBottom() {
+    await tick();
+    if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
+  }
+  $: messages, sending, historyLoaded, scrollToBottom();
+
+  // Grows the input with what's typed instead of staying pinned at one
+  // line — reset to 'auto' first so shrinking (e.g. after deleting text)
+  // isn't stuck at the tallest height it ever reached. `max-h-24` in the
+  // markup below still caps how tall this can get before it scrolls
+  // internally instead of growing forever.
+  function autoResizeTextarea() {
+    if (!textareaEl) return;
+    textareaEl.style.height = 'auto';
+    textareaEl.style.height = `${textareaEl.scrollHeight}px`;
+  }
 
   function persist(m: ChatMessage) {
     const userId = getUserId();
@@ -195,6 +220,7 @@
     messages = [...messages, userMsg];
     persist(userMsg);
     draft = '';
+    if (textareaEl) textareaEl.style.height = 'auto'; // programmatic clear doesn't fire 'input', so the grown height wouldn't otherwise reset
     sending = true;
 
     try {
@@ -560,7 +586,7 @@
 </script>
 
 <div class="flex flex-col h-[calc(100vh-3.5rem-6rem)] max-w-md mx-auto">
-  <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+  <div bind:this={scrollContainer} class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
     {#if !assistantConfigured}
       <div class="flex-1 flex flex-col items-center justify-center text-center gap-2 py-10">
         <p class="text-sm font-semibold text-txt-primary">Asisten AI belum dikonfigurasi</p>
@@ -712,12 +738,14 @@
 
   <div class="p-3 border-t border-border bg-base-nav flex items-end gap-2">
     <textarea
+      bind:this={textareaEl}
       bind:value={draft}
+      on:input={autoResizeTextarea}
       on:keydown={onKeydown}
       rows="1"
       placeholder="Tanya sesuatu…"
       disabled={!assistantConfigured || sending}
-      class="flex-1 resize-none rounded-lg bg-base-input border border-border px-3.5 py-2.5 text-sm text-txt-primary max-h-24 disabled:opacity-60"
+      class="flex-1 resize-none rounded-lg bg-base-input border border-border px-3.5 py-2.5 text-sm text-txt-primary max-h-24 overflow-y-auto disabled:opacity-60"
     ></textarea>
     <button
       on:click={() => send()}
