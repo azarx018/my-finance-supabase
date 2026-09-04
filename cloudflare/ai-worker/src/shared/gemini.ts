@@ -93,6 +93,7 @@ export async function callGeminiWithFallback(
     lastError = new Error(
       `Semua model di rotasi gagal (terakhir dicoba: ${model}, status: ${res.status})`
     );
+  }
 
   throw lastError ?? new Error('Daftar model Gemini kosong');
 }
