@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { transactions, customCategories, budgets, wallets, debts } from '$lib/stores/data';
-  import { session } from '$lib/stores/session';
+  import { transactions, customCategories, budgets, wallets, debts, assistantMemory } from '$lib/stores/data';
+  import { session, getUserId } from '$lib/stores/session';
   import { getCatList, type Cat, WALLET_EMOJIS } from '$lib/data/categories';
   import { getBudgetMonth } from '$lib/data/budget';
   import { computeWalletStats } from '$lib/data/wallets';
@@ -25,9 +25,11 @@
     type ProposeWalletArgs,
     type ProposeTransactionArgs,
     type ProposeDebtArgs,
-    type ProposeDebtPaymentArgs
+    type ProposeDebtPaymentArgs,
+    type RememberFactArgs
   } from '$lib/ai/assistant';
-  import { upsertRecord, atomic } from '$lib/db/repo';
+  import { loadHistory, appendHistory, updateHistoryAction, deleteHistoryMessage } from '$lib/ai/chatHistory';
+  import { upsertRecord, atomic, newId } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
   import BudgetProposalCard from '$lib/components/BudgetProposalCard.svelte';
   import SavingProposalCard from '$lib/components/SavingProposalCard.svelte';
@@ -35,6 +37,7 @@
   import TransactionProposalCard from '$lib/components/TransactionProposalCard.svelte';
   import DebtProposalCard from '$lib/components/DebtProposalCard.svelte';
   import DebtPaymentProposalCard from '$lib/components/DebtPaymentProposalCard.svelte';
+  import RememberFactCard from '$lib/components/RememberFactCard.svelte';
 
   type ChatAction =
     | { kind: 'propose_budget'; args: ProposeBudgetArgs; applied: boolean }
@@ -42,25 +45,21 @@
     | { kind: 'propose_wallet'; args: ProposeWalletArgs; applied: boolean }
     | { kind: 'propose_transaction'; args: ProposeTransactionArgs; applied: boolean }
     | { kind: 'propose_debt'; args: ProposeDebtArgs; applied: boolean }
-    | { kind: 'propose_debt_payment'; args: ProposeDebtPaymentArgs; applied: boolean };
+    | { kind: 'propose_debt_payment'; args: ProposeDebtPaymentArgs; applied: boolean }
+    | { kind: 'remember_fact'; args: RememberFactArgs; applied: boolean };
 
   interface ChatMessage {
-    id: number;
+    id: string;
     role: 'user' | 'assistant';
     text: string;
     action?: ChatAction;
-    // Set only when this message was one of SEVERAL actions the
-    // assistant proposed in the same reply (e.g. "catetin: makan 20rb,
-    // ngopi 15rb" → 2 propose_transaction calls at once). Lets the UI
-    // group them under one "Terapkan Semua" button instead of forcing
-    // a click per card.
-    batchId?: number;
+    batchId?: string | null;
   }
 
   let messages: ChatMessage[] = [];
   let draft = '';
-  let counter = 0;
   let sending = false;
+  let historyLoaded = false;
   // Tracks the amount the person last confirmed as "available" (from
   // salary or stated manually) so BudgetProposalCard's "sisa belum
   // dialokasikan" row has something to compare against. Best-effort: we
@@ -76,6 +75,27 @@
     const goOffline = () => (online = false);
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
+
+    // Level A memory: reload the last ~20 messages for this device so
+    // reopening the page (or the whole app being killed and reopened —
+    // technically indistinguishable once this is on disk, see
+    // chatHistory.ts) doesn't start from a blank slate every time.
+    const userId = getUserId();
+    if (userId) {
+      loadHistory(userId).then((rows) => {
+        messages = rows.map((r) => ({
+          id: r.id,
+          role: r.role,
+          text: r.text,
+          action: r.actionJson ? JSON.parse(r.actionJson) : undefined,
+          batchId: r.batchId
+        }));
+        historyLoaded = true;
+      });
+    } else {
+      historyLoaded = true;
+    }
+
     return () => {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
@@ -97,6 +117,21 @@
   $: existingBudgetThisMonth = getExistingBudget($budgets, month);
   $: spendingThisMonth = getSpendingSummary($transactions, month);
   $: spentByCategory = Object.fromEntries(spendingThisMonth.by_category.map((c) => [c.cat_id, c.amount]));
+  $: memoryList = $assistantMemory.map((m) => m.content as string);
+
+  function persist(m: ChatMessage) {
+    const userId = getUserId();
+    if (!userId) return;
+    void appendHistory({
+      id: m.id,
+      userId,
+      role: m.role,
+      text: m.text,
+      actionJson: m.action ? JSON.stringify(m.action) : null,
+      batchId: m.batchId ?? null,
+      createdAt: Date.now()
+    });
+  }
 
   function toApiHistory(msgs: ChatMessage[]): ChatTurn[] {
     return msgs.map((m) => {
@@ -121,6 +156,8 @@
           return { role: m.role, text: `Usulan ${a.args.dtype} "${a.args.name}" Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
         case 'propose_debt_payment':
           return { role: m.role, text: `Usulan bayar hutang id ${a.args.debt_id} Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
+        case 'remember_fact':
+          return { role: m.role, text: `Usulan diingat: "${a.args.content}"` };
       }
     });
   }
@@ -139,6 +176,8 @@
         return { kind: 'propose_debt', args: a.args, applied: false };
       case 'propose_debt_payment':
         return { kind: 'propose_debt_payment', args: a.args, applied: false };
+      case 'remember_fact':
+        return { kind: 'remember_fact', args: a.args, applied: false };
     }
   }
 
@@ -152,7 +191,9 @@
     }
 
     const history = toApiHistory(messages);
-    messages = [...messages, { id: ++counter, role: 'user', text: value }];
+    const userMsg: ChatMessage = { id: newId(), role: 'user', text: value };
+    messages = [...messages, userMsg];
+    persist(userMsg);
     draft = '';
     sending = true;
 
@@ -170,6 +211,7 @@
           income_categories: incomeCatsList.map((c) => ({ id: c.id, name: c.name })),
           wallets: $wallets.map((w) => ({ id: w.id, name: w.name as string })),
           debts: activeDebts,
+          memory: memoryList,
           salary_transaction: salary ? { amount: salary.amount, date: salary.date, wallet_id: salary.walletId } : null,
           avg_spending_last_3mo: getAverageSpendingByCategory($transactions, 3),
           existing_budget_this_month: existingBudgetThisMonth,
@@ -183,33 +225,40 @@
         // Only tag a batchId when there's actually more than one action
         // to group — a single action never needs a "Terapkan Semua"
         // button next to its own individual one.
-        const batchId = result.actions.length > 1 ? ++counter : undefined;
-        const newMessages = result.actions.map((a) => ({
-          id: ++counter,
-          role: 'assistant' as const,
+        const batchId = result.actions.length > 1 ? newId() : null;
+        const newMessages: ChatMessage[] = result.actions.map((a) => ({
+          id: newId(),
+          role: 'assistant',
           text: '',
           action: actionToChatAction(a),
           batchId
         }));
         messages = [...messages, ...newMessages];
+        newMessages.forEach(persist);
       } else {
-        messages = [...messages, { id: ++counter, role: 'assistant', text: result.text }];
+        const replyMsg: ChatMessage = { id: newId(), role: 'assistant', text: result.text };
+        messages = [...messages, replyMsg];
+        persist(replyMsg);
       }
     } catch (err) {
       const errText = err instanceof Error ? err.message : 'Asisten lagi nggak bisa diakses, coba lagi nanti';
-      messages = [...messages, { id: ++counter, role: 'assistant', text: `⚠️ ${errText}` }];
+      const errMsg: ChatMessage = { id: newId(), role: 'assistant', text: `⚠️ ${errText}` };
+      messages = [...messages, errMsg];
+      persist(errMsg);
     } finally {
       sending = false;
     }
   }
 
-  function markApplied(messageId: number) {
+  function markApplied(messageId: string) {
     messages = messages.map((m) =>
       m.id === messageId && m.action ? { ...m, action: { ...m.action, applied: true } } : m
     );
+    const updated = messages.find((m) => m.id === messageId);
+    if (updated?.action) void updateHistoryAction(messageId, JSON.stringify(updated.action));
   }
 
-  async function applyBudget(messageId: number, allocations: Array<{ category_id: string; amount: number }>) {
+  async function applyBudget(messageId: string, allocations: Array<{ category_id: string; amount: number }>) {
     const msg = messages.find((m) => m.id === messageId);
     if (!msg?.action || msg.action.kind !== 'propose_budget') return;
     const budgetMonth = msg.action.args.month;
@@ -245,7 +294,7 @@
    * exists as its own action). Mirrors BucketSheet.svelte +
    * SavingTxSheet.svelte's own submit logic exactly.
    */
-  async function applySaving(messageId: number, data: { name: string; amount: number; walletId: string }) {
+  async function applySaving(messageId: string, data: { name: string; amount: number; walletId: string }) {
     const balance = walletStats[data.walletId]?.balance ?? 0;
     if (balance < data.amount) {
       showToast('Saldo dompet tidak cukup', 'error');
@@ -287,7 +336,7 @@
     }
   }
 
-  async function applyWallet(messageId: number, data: { name: string; emoji: string; initialBalance: number }) {
+  async function applyWallet(messageId: string, data: { name: string; emoji: string; initialBalance: number }) {
     try {
       await upsertRecord('wallets', { name: data.name, emoji: data.emoji, initial_balance: data.initialBalance });
       markApplied(messageId);
@@ -298,7 +347,7 @@
   }
 
   async function applyTransaction(
-    messageId: number,
+    messageId: string,
     data: { type: 'income' | 'expense'; amount: number; description: string; categoryId: string; date: string; walletId: string }
   ) {
     try {
@@ -321,7 +370,7 @@
 
   /** Mirrors DebtSheet.svelte's create-new-debt flow exactly (2 tables, atomic). */
   async function applyDebt(
-    messageId: number,
+    messageId: string,
     data: { dtype: 'borrowed' | 'lent'; name: string; amount: number; dueDate: string; walletId: string }
   ) {
     try {
@@ -359,7 +408,7 @@
   }
 
   /** Mirrors PaymentSheet.svelte's payment flow exactly (3 tables, atomic). */
-  async function applyDebtPayment(messageId: number, debt: ActiveDebtInfo, data: { amount: number; walletId: string }) {
+  async function applyDebtPayment(messageId: string, debt: ActiveDebtInfo, data: { amount: number; walletId: string }) {
     const fullDebt = $debts.find((d) => d.id === debt.id);
     if (!fullDebt) {
       showToast('Hutang ini sudah tidak ditemukan', 'error');
@@ -409,8 +458,19 @@
     }
   }
 
-  function dismissAction(messageId: number) {
+  async function applyRememberFact(messageId: string, content: string) {
+    try {
+      await upsertRecord('assistant_memory', { content });
+      markApplied(messageId);
+      showToast('Diinget!');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menyimpan memori', 'error');
+    }
+  }
+
+  function dismissAction(messageId: string) {
     messages = messages.filter((m) => m.id !== messageId);
+    void deleteHistoryMessage(messageId);
   }
 
   // Whether `m` is the LAST message rendered from its batch — the
@@ -422,7 +482,7 @@
     return batchMsgs[batchMsgs.length - 1]?.id === m.id;
   }
 
-  function batchUnappliedCount(batchId: number): number {
+  function batchUnappliedCount(batchId: string): number {
     return messages.filter((x) => x.batchId === batchId && x.action && !x.action.applied).length;
   }
 
@@ -435,7 +495,7 @@
    * edit that one card and apply it individually instead of using this
    * button — both paths stay available side by side.
    */
-  async function applyBatch(batchId: number) {
+  async function applyBatch(batchId: string) {
     const batchMsgs = messages.filter((m) => m.batchId === batchId && m.action && !m.action.applied);
     for (const m of batchMsgs) {
       if (!m.action) continue;
@@ -484,6 +544,9 @@
           await applyDebtPayment(m.id, matchedDebt, { amount: a.args.amount, walletId: a.args.wallet_id });
           break;
         }
+        case 'remember_fact':
+          await applyRememberFact(m.id, a.args.content);
+          break;
       }
     }
   }
@@ -506,6 +569,8 @@
           ini aktif.
         </p>
       </div>
+    {:else if !historyLoaded}
+      <div class="flex-1"></div>
     {:else if messages.length === 0}
       <div class="flex-1 flex flex-col items-center justify-center text-center gap-3 py-10">
         <div
@@ -599,6 +664,13 @@
               onApply={(data) => matchedDebt && applyDebtPayment(m.id, matchedDebt, data)}
               onDismiss={() => dismissAction(m.id)}
             />
+          {:else if m.action?.kind === 'remember_fact'}
+            <RememberFactCard
+              args={m.action.args}
+              applied={m.action.applied}
+              onApply={() => applyRememberFact(m.id, m.action.args.content)}
+              onDismiss={() => dismissAction(m.id)}
+            />
           {:else}
             <div
               class="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm {m.role === 'user'
@@ -613,7 +685,7 @@
         {#if isLastOfBatch(m) && m.batchId != null && batchUnappliedCount(m.batchId) > 1}
           <div class="flex justify-start">
             <button
-              on:click={() => applyBatch(m.batchId ?? -1)}
+              on:click={() => applyBatch(m.batchId ?? '')}
               class="text-xs font-medium py-2 px-4 rounded-lg text-white"
               style="background: var(--primary)"
             >

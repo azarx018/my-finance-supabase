@@ -56,3 +56,4 @@ export const savingTxs = liveTable('saving_txs');
 export const debts = liveTable('debts');
 export const debtPayments = liveTable('debt_payments');
 export const reminders = liveTable('reminders');
+export const assistantMemory = liveTable('assistant_memory');

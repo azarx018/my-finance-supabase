@@ -8,7 +8,8 @@
   import { notifEnabled, notifTime } from '$lib/stores/notif';
   import { scheduleNotif } from '$lib/notif/scheduler';
   import { exportJSON, exportCSV, importJSON } from '$lib/db/backup';
-  import { wipeAllData, purgeAllDataPermanently } from '$lib/db/repo';
+  import { wipeAllData, purgeAllDataPermanently, softDeleteRecord } from '$lib/db/repo';
+  import { assistantMemory } from '$lib/stores/data';
   import { showToast } from '$lib/stores/toast';
   import { canInstall, promptInstall } from '$lib/pwa/install';
   import {
@@ -267,6 +268,30 @@
         >
           Buang Semua ({failedEntries.length})
         </button>
+      </div>
+    </section>
+  {/if}
+
+  {#if $assistantMemory.length > 0}
+    <section>
+      <h2 class="text-xs font-medium text-txt-secondary mb-3">🧠 Yang Diinget Asisten AI ({$assistantMemory.length})</h2>
+      <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
+        <p class="text-xs text-txt-secondary">
+          Fakta-fakta ini diinget asisten lintas sesi & device. Hapus kalau ada yang salah paham.
+        </p>
+        {#each $assistantMemory as m (m.id)}
+          <div class="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
+            <p class="text-xs text-txt-primary">{m.content}</p>
+            <button
+              on:click={() => softDeleteRecord('assistant_memory', m.id)}
+              aria-label="Hapus memori ini"
+              class="text-xs shrink-0"
+              style="color: var(--expense)"
+            >
+              🗑️
+            </button>
+          </div>
+        {/each}
       </div>
     </section>
   {/if}

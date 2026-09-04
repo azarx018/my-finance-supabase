@@ -65,6 +65,30 @@ export interface PendingPhotoUpload {
   createdAt: number;
 }
 
+// The Asisten AI chat's rolling local history (Level A memory — see
+// the "asisten mengingat kita" design discussion). Deliberately LOCAL
+// ONLY, never synced — unlike assistant_memory below, a raw chat
+// transcript isn't something that needs to follow you to another
+// device, and keeping it device-local avoids sending conversational
+// text to Supabase at all. `actionJson` preserves enough of a
+// propose_* action to redraw its confirmation card (including whether
+// it was already applied) after a reload — see asisten/+page.svelte.
+//
+// `id`/`batchId` are app-assigned UUIDs (via repo.ts's newId()), NOT
+// Dexie auto-increment numbers — that lets the chat UI put a message
+// on screen immediately and know its permanent id synchronously,
+// without waiting on a round-trip to IndexedDB just to find out what
+// id got assigned.
+export interface LocalChatMessage {
+  id: string;
+  userId: string;
+  role: 'user' | 'assistant';
+  text: string;
+  actionJson: string | null;
+  batchId: string | null;
+  createdAt: number;
+}
+
 // Single source of truth for which tables sync. Adding a new synced
 // table later means: add it here, add a Dexie store for it below, add
 // the matching Postgres table in supabase/schema.sql. Nothing else in
@@ -79,7 +103,8 @@ export const SYNC_TABLES = [
   'debt_payments',
   'budgets',
   'reminders',
-  'transactions'
+  'transactions',
+  'assistant_memory'
 ] as const;
 export type SyncTable = (typeof SYNC_TABLES)[number];
 
@@ -94,10 +119,12 @@ class MyFinanceDB extends Dexie {
   budgets!: Table<SyncableRecord, string>;
   reminders!: Table<SyncableRecord, string>;
   transactions!: Table<SyncableRecord, string>;
+  assistant_memory!: Table<SyncableRecord, string>;
   syncQueue!: Table<QueueEntry, number>;
   failedQueue!: Table<FailedQueueEntry, number>;
   syncMeta!: Table<SyncMeta, string>;
   pendingPhotoUploads!: Table<PendingPhotoUpload, number>;
+  chatMessages!: Table<LocalChatMessage, string>;
 
   constructor() {
     super('MyFinanceDB');
@@ -143,6 +170,13 @@ class MyFinanceDB extends Dexie {
     this.version(4).stores({
       failedQueue: '++fid, table, recordId, failedAt'
     });
+
+    // v5: assistant_memory (synced — see migration_assistant_memory.sql)
+    // and chatMessages (local-only rolling chat history, Level A memory).
+    this.version(5).stores({
+      assistant_memory: 'id, updated_at, deleted_at',
+      chatMessages: 'id, userId, createdAt'
+    });
   }
 }
 
@@ -178,7 +212,8 @@ export async function wipeLocalDatabase(): Promise<void> {
       db.syncQueue,
       db.failedQueue,
       db.syncMeta,
-      db.pendingPhotoUploads
+      db.pendingPhotoUploads,
+      db.chatMessages
     ],
     async () => {
       for (const table of SYNC_TABLES) await db[table].clear();
@@ -186,6 +221,7 @@ export async function wipeLocalDatabase(): Promise<void> {
       await db.failedQueue.clear();
       await db.syncMeta.clear();
       await db.pendingPhotoUploads.clear();
+      await db.chatMessages.clear();
     }
   );
 }

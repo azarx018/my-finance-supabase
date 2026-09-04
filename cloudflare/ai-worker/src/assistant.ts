@@ -49,6 +49,7 @@ interface AssistantRequestBody {
   income_categories: CategoryOption[]; // for income-type propose_transaction
   wallets: WalletOption[];
   debts: DebtOption[]; // active (unpaid) debts/receivables — for propose_debt_payment's fuzzy name match
+  memory: string[]; // remembered facts (name, primary wallet, savings goals, preferences — see remember_fact)
   salary_transaction: SalaryTransaction | null; // most recent cat_id:'salary' income tx this app already found locally
   avg_spending_last_3mo: Record<string, number>; // cat_id -> average monthly amount
   existing_budget_this_month: Record<string, number>; // cat_id -> limit_amount already set for current_month
@@ -228,6 +229,21 @@ function buildTools(
             },
             required: ['debt_id', 'amount', 'wallet_id', 'reasoning']
           }
+        },
+        {
+          name: 'remember_fact',
+          description:
+            'Simpan SATU fakta pendek tentang user secara jangka panjang, lintas sesi/device — nama, dompet utama, tujuan nabung, preferensi kategori, atau hal lain yang jelas berguna diingat ke depannya. HANYA panggil ini kalau user MENYEBUTKAN sesuatu yang layak diingat (jangan panggil untuk hal remeh/basa-basi), dan HANYA setelah user MENGONFIRMASI lewat teks bahwa dia mau itu diingat (tawarkan dulu lewat teks kalau belum pernah nanya di percakapan ini — jangan langsung panggil tanpa nawarin dulu).',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              content: {
+                type: 'STRING',
+                description: 'Kalimat pendek, jelas berdiri sendiri tanpa konteks tambahan, misal "Wallet utama: BCA" atau "Tujuan nabung: DP motor akhir tahun"'
+              }
+            },
+            required: ['content']
+          }
         }
       ]
     }
@@ -249,6 +265,7 @@ function buildSystemInstruction(body: AssistantRequestBody): string {
   const debtList =
     body.debts.map((d) => `- ${d.id}: ${d.name} (${d.dtype === 'borrowed' ? 'hutang' : 'piutang'}, sisa Rp${d.remaining.toLocaleString('id-ID')})`).join('\n') ||
     '(tidak ada hutang/piutang aktif)';
+  const memoryList = body.memory.length > 0 ? body.memory.map((m) => `- ${m}`).join('\n') : '(belum ada yang diingat)';
   const avgList =
     Object.entries(body.avg_spending_last_3mo)
       .map(([id, amt]) => `- ${id}: rata-rata Rp${amt.toLocaleString('id-ID')}/bulan (3 bulan terakhir)`)
@@ -282,6 +299,9 @@ ${walletList}
 
 Daftar hutang/piutang AKTIF (belum lunas) — untuk propose_debt_payment:
 ${debtList}
+
+HAL-HAL YANG SUDAH DIINGAT tentang user (dari percakapan sebelumnya, lintas sesi):
+${memoryList}
 
 Rata-rata pengeluaran per kategori (3 bulan terakhir):
 ${avgList}
@@ -317,7 +337,13 @@ ATURAN LAIN:
 7. Kalau user tanya soal pengeluaran ("pengeluaran terbesar apa?", "kenapa boros/naik?") — JAWAB LANGSUNG pakai data RINGKASAN PENGELUARAN di atas, JANGAN panggil tool apapun.
 8. Kalau user tanya "budget gue masuk akal nggak?" — bandingkan "budget yang sudah ada bulan ini" dengan "rata-rata pengeluaran per kategori", kasih pendapat jujur lewat teks, jangan panggil tool.
 9. Kalau user cuma nanya hal lain di luar semua itu, jawab biasa pakai teks, jangan panggil tool apapun.
-10. Jangan mengarang angka/tanggal/nama yang tidak ada dasarnya dari data di atas atau dari yang disebut user sendiri.`;
+10. Jangan mengarang angka/tanggal/nama yang tidak ada dasarnya dari data di atas atau dari yang disebut user sendiri.
+
+ATURAN MEMORI (remember_fact):
+11. Pakai "HAL-HAL YANG SUDAH DIINGAT" di atas sebagai konteks personal user — sapa pakai nama kalau ada, prioritaskan wallet utama yang diingat kalau relevan, dsb.
+12. Kalau user menyebutkan sesuatu yang jelas berguna diingat jangka panjang (nama, dompet utama, tujuan nabung, preferensi kategori/nasihat) dan itu BELUM ada di daftar yang sudah diingat, TAWARKAN dulu lewat teks biasa — misal "Mau aku inget kalau dompet utama kamu BCA?" — JANGAN langsung panggil remember_fact di giliran yang sama.
+13. Baru panggil remember_fact setelah user MENGONFIRMASI ("iya", "boleh", dst) di giliran berikutnya.
+14. Jangan menawarkan mengingat hal yang remeh/basa-basi/tidak akan berguna ke depannya.`;
 }
 
 export async function handleAssistant(request: Request, env: Env, cors: Record<string, string>): Promise<Response> {
@@ -335,6 +361,7 @@ export async function handleAssistant(request: Request, env: Env, cors: Record<s
   const wallets = Array.isArray(body.wallets) ? body.wallets : [];
   const debts = Array.isArray(body.debts) ? body.debts : [];
   const history = Array.isArray(body.history) ? body.history : [];
+  body.memory = Array.isArray(body.memory) ? body.memory : [];
   const emptySummary: SpendingSummary = { total: 0, by_category: [] };
   body.spending_this_month = body.spending_this_month ?? emptySummary;
   body.spending_last_month = body.spending_last_month ?? emptySummary;

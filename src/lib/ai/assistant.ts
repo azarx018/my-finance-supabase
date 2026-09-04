@@ -49,13 +49,18 @@ export interface ProposeDebtPaymentArgs {
   reasoning: string;
 }
 
+export interface RememberFactArgs {
+  content: string;
+}
+
 export type AssistantAction =
   | { action: 'propose_budget'; args: ProposeBudgetArgs }
   | { action: 'propose_saving'; args: ProposeSavingArgs }
   | { action: 'propose_wallet'; args: ProposeWalletArgs }
   | { action: 'propose_transaction'; args: ProposeTransactionArgs }
   | { action: 'propose_debt'; args: ProposeDebtArgs }
-  | { action: 'propose_debt_payment'; args: ProposeDebtPaymentArgs };
+  | { action: 'propose_debt_payment'; args: ProposeDebtPaymentArgs }
+  | { action: 'remember_fact'; args: RememberFactArgs };
 
 export type AssistantResponse = { type: 'text'; text: string } | { type: 'actions'; actions: AssistantAction[] };
 
@@ -66,6 +71,7 @@ export interface AssistantContext {
   income_categories: Array<{ id: string; name: string }>;
   wallets: Array<{ id: string; name: string }>;
   debts: Array<{ id: string; name: string; dtype: 'borrowed' | 'lent'; remaining: number }>;
+  memory: string[];
   salary_transaction: { amount: number; date: string; wallet_id: string | null } | null;
   avg_spending_last_3mo: Record<string, number>;
   existing_budget_this_month: Record<string, number>;
