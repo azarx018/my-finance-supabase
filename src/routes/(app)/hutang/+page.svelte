@@ -100,7 +100,7 @@
 </script>
 
 <div class="p-4 flex flex-col gap-4 page-wrap">
-  <section class="rounded-xl p-5 text-white shadow-lg span-all" style="background: linear-gradient(135deg, var(--expense), #f97373)">
+  <section class="rounded-xl p-5 text-white shadow-lg span-all" style="background: linear-gradient(135deg, var(--expense), color-mix(in srgb, var(--expense), white 25%))">
     <p class="text-sm opacity-80">Total Hutang Belum Lunas</p>
     <p class="text-2xl font-semibold mt-1">{formatRp(totalUnpaid)}</p>
     <div class="flex gap-4 mt-3 text-xs opacity-90">

@@ -128,7 +128,7 @@
 
 <BottomSheet {open} {onClose}>
   {#if debt}
-    <h2 class="text-sm font-semibold mb-1 text-txt-primary">
+    <h2 class="text-xl font-extrabold tracking-tight mb-1 text-txt-primary flex items-center gap-2">
       {isLent ? ' Terima Kembali' : ' Bayar Hutang'}
     </h2>
     <p class="text-xs text-txt-secondary mb-4">{isLent ? 'Dari' : 'Hutang ke'}: {debt.name}</p>

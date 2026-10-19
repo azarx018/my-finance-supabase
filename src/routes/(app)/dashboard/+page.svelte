@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { catColor } from '$lib/data/catColor';
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { wallets, transactions, customCategories } from '$lib/stores/data';
@@ -109,7 +110,7 @@
 
 <div class="page-wrap">
   <!-- Hero: total kekayaan + mini chart pengeluaran 7 hari -->
-  <section class="hero-card span-all relative overflow-hidden rounded-2xl p-6" style="border: 2px solid var(--ink); box-shadow: var(--shadow-lg)">
+  <section class="hero-card span-all relative overflow-hidden rounded-2xl p-6" style="border: 2px solid var(--line); box-shadow: var(--shadow-lg)">
     <button
       on:click={popCoin}
       aria-label="Koin"
@@ -131,12 +132,12 @@
   </section>
 
   <section class="grid grid-cols-2 gap-3">
-    <div class="rounded-xl p-4 shadow-sm" style="background: var(--income-bg); border: 2px solid var(--ink)">
+    <div class="rounded-xl p-4 shadow-sm" style="background: var(--income-bg); border: 2px solid var(--line)">
       <p class="text-xs font-semibold flex items-center gap-1.5" style="color: var(--income)"><Icon name="down" size={14} /> Pemasukan</p>
       <p class="text-lg font-extrabold mt-1 tabular-nums" style="color: var(--income)" use:countUp={{ value: totals.income, format: formatRpC }}></p>
       <p class="text-[11px] text-txt-secondary">bulan ini</p>
     </div>
-    <div class="rounded-xl p-4 shadow-sm" style="background: var(--expense-bg); border: 2px solid var(--ink)">
+    <div class="rounded-xl p-4 shadow-sm" style="background: var(--expense-bg); border: 2px solid var(--line)">
       <p class="text-xs font-semibold flex items-center gap-1.5" style="color: var(--expense)"><Icon name="up" size={14} /> Pengeluaran</p>
       <p class="text-lg font-extrabold mt-1 tabular-nums" style="color: var(--expense)" use:countUp={{ value: totals.expense, format: formatRpC }}></p>
       <p class="text-[11px] text-txt-secondary">bulan ini</p>
@@ -177,14 +178,14 @@
         <button
           on:click={() => goto('/dompet')}
           class="text-xs font-semibold px-3 py-1.5 rounded-full"
-          style="border: 2px solid var(--ink); background: var(--bg-card)"
+          style="border: 2px solid var(--line); background: var(--bg-card)"
         >
           Lihat semua
         </button>
       </div>
       <div class="flex gap-2 overflow-x-auto pb-1">
         {#each $wallets as w (w.id)}
-          <div class="shrink-0 rounded-lg px-3 py-2 min-w-[124px]" style="background: var(--bg-card2); border: 2px solid var(--ink)">
+          <div class="shrink-0 rounded-lg px-3 py-2 min-w-[124px]" style="background: var(--bg-card2); border: 2px solid var(--line)">
             <p class="text-xs text-txt-secondary truncate">{w.emoji} {w.name}</p>
             <p class="text-sm font-extrabold mt-0.5">{formatRpC(stats[w.id]?.balance ?? 0)}</p>
           </div>
@@ -199,7 +200,7 @@
       <button
         on:click={() => goto('/riwayat')}
         class="text-xs font-semibold px-3 py-1.5 rounded-full"
-        style="border: 2px solid var(--ink); background: var(--bg-card)"
+        style="border: 2px solid var(--line); background: var(--bg-card)"
       >
         Lihat semua
       </button>
@@ -215,7 +216,7 @@
         {@const dt = getDisplayType(t)}
         {@const isTransfer = t.type === 'transfer'}
         <div class="flex items-center gap-3">
-          <span class="em-tile">
+          <span class="em-tile" style="--k: {catColor(isTransfer ? 'transfer' : cat?.id)}">
             {#if isTransfer}<Icon name="swap" size={20} />{:else}{cat?.emoji ?? '💸'}{/if}
           </span>
           <div class="flex-1 min-w-0">

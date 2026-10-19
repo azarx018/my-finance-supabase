@@ -18,7 +18,7 @@
           ? 'var(--primary-bg)'
           : 'var(--bg-card)'}"
       >
-        <span class="w-7 h-7 rounded-full" style="background:{t.swatch}; border: 2px solid var(--ink)"></span>
+        <span class="w-7 h-7 rounded-full" style="background:{t.swatch}; border: 2px solid var(--line)"></span>
         <span class="text-xs font-semibold text-txt-primary">{t.label}</span>
       </button>
     {/each}

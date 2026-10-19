@@ -68,6 +68,10 @@ body[data-theme='ocean'] {
 /* ---------- Token umum (mode terang) ---------- */
 body {
   --ink: #12151f;
+  --line: #12151f; /* warna garis & bayangan keras (di mode gelap dibuat lebih lembut) */
+  --dots: rgba(18, 21, 31, 0.16);
+  --blob: 30%;
+  --blob2: 24%;
   --on-primary: #ffffff;
   --coin: #ffc93c;
   --warn: #c77a00;
@@ -84,11 +88,11 @@ body {
   --txt-primary: #12151f;
   --txt-secondary: #586078;
   --txt-muted: #7c829a;
-  --border: var(--ink);
+  --border: var(--line);
   --border-focus: var(--primary);
-  --shadow-sm: 3px 3px 0 var(--ink);
-  --shadow-md: 4px 4px 0 var(--ink);
-  --shadow-lg: 6px 6px 0 var(--ink);
+  --shadow-sm: 3px 3px 0 var(--line);
+  --shadow-md: 4px 4px 0 var(--line);
+  --shadow-lg: 6px 6px 0 var(--line);
   --radius-sm: 12px;
   --radius-md: 16px;
   --radius-lg: 20px;
@@ -96,23 +100,28 @@ body {
 }
 
 /* ---------- Mode gelap ---------- */
+/* Garis & bayangan dibuat lembut (bukan putih menyala) supaya nyaman di mata. */
 body.dark-mode {
-  --ink: #f2f4ff;
+  --ink: #f1f3ff;
+  --line: #394066;
+  --dots: rgba(255, 255, 255, 0.045);
+  --blob: 14%;
+  --blob2: 7%;
   --on-primary: #06120c;
   --warn: #ffc24d;
   --warn-bg: rgba(255, 194, 77, 0.16);
   --info: #7c9bff;
   --info-bg: rgba(124, 155, 255, 0.16);
-  --bg-base: #0e1018;
-  --bg-card: #181b28;
-  --bg-card2: #232843;
-  --bg-input: #121523;
-  --bg-pill: #232843;
-  --bg-nav: #181b28;
-  --bg-sheet: #181b28;
-  --txt-primary: #f2f4ff;
-  --txt-secondary: #a3a9c2;
-  --txt-muted: #7a819e;
+  --bg-base: #0b0d14;
+  --bg-card: #151927;
+  --bg-card2: #1f2439;
+  --bg-input: #0f1220;
+  --bg-pill: #1f2439;
+  --bg-nav: #151927;
+  --bg-sheet: #151927;
+  --txt-primary: #f1f3ff;
+  --txt-secondary: #aab0ca;
+  --txt-muted: #7d84a3;
 }
 body.dark-mode,
 body.dark-mode[data-theme='emerald'] {
@@ -160,7 +169,7 @@ body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
   body {
     font-family: 'Bricolage Grotesque', 'Sora', system-ui, sans-serif;
     font-optical-sizing: auto;
-    background: radial-gradient(color-mix(in srgb, var(--ink) 15%, transparent) 1.2px, transparent 1.4px) 0 0 / 22px
+    background: radial-gradient(var(--dots) 1.2px, transparent 1.4px) 0 0 / 22px
         22px,
       var(--bg-base);
     color: var(--txt-primary);
@@ -215,8 +224,8 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(520px 320px at 92% -5%, color-mix(in srgb, var(--primary) 30%, transparent), transparent),
-    radial-gradient(420px 320px at -5% 45%, color-mix(in srgb, var(--coin) 24%, transparent), transparent);
+  background: radial-gradient(520px 320px at 92% -5%, color-mix(in srgb, var(--primary) var(--blob), transparent), transparent),
+    radial-gradient(420px 320px at -5% 45%, color-mix(in srgb, var(--coin) var(--blob2), transparent), transparent);
   animation: drift 12s ease-in-out infinite alternate;
 }
 
@@ -229,7 +238,7 @@ input[type='checkbox'] {
   height: 30px;
   flex-shrink: 0;
   border-radius: 99px;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--line);
   background: var(--bg-card2);
   cursor: pointer;
   transition: background-color 0.2s;
@@ -255,7 +264,7 @@ input[type='checkbox']:checked::after {
 /* Kartu hero (gradasi utama / pengeluaran) diberi dekorasi */
 [style*='linear-gradient(135deg, var(--primary)'],
 [style*='linear-gradient(135deg, var(--expense)'] {
-  border: 2px solid var(--ink);
+  border: 2px solid var(--line);
   box-shadow: var(--shadow-lg);
   position: relative;
   overflow: hidden;
@@ -310,8 +319,8 @@ input[type='checkbox']:checked::after {
   flex-shrink: 0;
   font-size: 22px;
   line-height: 1;
-  background: color-mix(in srgb, var(--primary) 20%, var(--bg-card));
-  border: 2px solid var(--ink);
+  background: color-mix(in srgb, var(--k, var(--primary)) 26%, var(--bg-card));
+  border: 2px solid var(--line);
   transition: transform 0.2s;
 }
 button:hover > .em-tile,
@@ -348,8 +357,8 @@ div:hover > .em-tile {
 /* Stiker status */
 .sticker {
   transform: rotate(-4deg);
-  box-shadow: 2px 2px 0 var(--ink);
-  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--line);
+  border: 2px solid var(--line);
 }
 
 /* FAB */
@@ -362,18 +371,9 @@ div:hover > .em-tile {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--line);
   box-shadow: var(--shadow-sm);
   z-index: 30;
-}
-.fab::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  border: 2px solid var(--coin);
-  animation: pulse 2.2s ease-out infinite;
-  pointer-events: none;
 }
 .fab:active {
   transform: translate(3px, 3px) rotate(90deg) !important;
@@ -463,3 +463,47 @@ div.h-full.rounded-full {
 @keyframes spinY { 50% { transform: rotateY(180deg); } }
 @keyframes loadbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
 @keyframes cf { to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; } }
+
+/* ---------- Polish ---------- */
+html { scroll-behavior: smooth; }
+::selection { background: var(--coin); color: #12151f; }
+::placeholder { color: var(--txt-muted); opacity: 1; }
+.font-medium { font-weight: 600; }
+.font-semibold { font-weight: 700; }
+.text-xs { font-size: 0.8125rem; line-height: 1.2rem; }
+.text-\[10px\] { font-size: 11px; line-height: 1rem; }
+
+/* Tombol aksi utama di semua sheet & halaman: gaya "sticker" yang sama */
+button[style*='background: var(--primary)'],
+button[style*='background: var(--expense)'],
+button[style*='background: var(--info)'] {
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  font-weight: 800;
+}
+button[style*='background: var(--primary)']:not(:disabled):active,
+button[style*='background: var(--expense)']:not(:disabled):active,
+button[style*='background: var(--info)']:not(:disabled):active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+/* Keadaan kosong: kotak putus-putus yang ramah, bukan teks polos */
+p.text-center.span-all {
+  border: 2px dashed var(--line);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  padding: 36px 20px !important;
+  font-weight: 600;
+  color: var(--txt-secondary);
+}
+
+/* Hero di mode gelap: sedikit diredam supaya tidak menyilaukan */
+body.dark-mode .hero-card {
+  background: radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.18) 0 64px, transparent 65px),
+    radial-gradient(circle at 104% 108%, rgba(0, 0, 0, 0.22) 0 120px, transparent 121px),
+    color-mix(in srgb, var(--primary) 86%, #0b0d14);
+}
+body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
+  filter: saturate(0.9) brightness(0.92);
+}

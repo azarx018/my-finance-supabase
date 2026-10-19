@@ -34,7 +34,7 @@
         on:click={() => history.back()}
         aria-label="Kembali"
         class="w-10 h-10 grid place-items-center shrink-0 rounded-xl"
-        style="border: 2px solid var(--ink); background: var(--bg-card)"
+        style="border: 2px solid var(--line); background: var(--bg-card)"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="w-5 h-5">
           <polyline points="15 18 9 12 15 6" />
@@ -78,7 +78,7 @@
       disabled={pageId === 'asisten'}
       aria-label="Asisten AI"
       class="min-[900px]:hidden w-11 h-11 grid place-items-center rounded-xl disabled:opacity-40 disabled:pointer-events-none"
-      style="border: 2px solid var(--ink); background: var(--bg-card)"
+      style="border: 2px solid var(--line); background: var(--bg-card)"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
         <path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" />
@@ -88,7 +88,7 @@
       on:click={() => goto('/lainnya')}
       aria-label="Menu lainnya"
       class="min-[900px]:hidden w-11 h-11 grid place-items-center rounded-xl"
-      style="border: 2px solid var(--ink); background: var(--bg-card)"
+      style="border: 2px solid var(--line); background: var(--bg-card)"
     >
       <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
         <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
@@ -98,7 +98,7 @@
       on:click={() => darkMode.update((v) => !v)}
       aria-label="Ganti mode gelap/terang"
       class="w-11 h-11 grid place-items-center rounded-xl"
-      style="border: 2px solid var(--ink); background: var(--bg-card)"
+      style="border: 2px solid var(--line); background: var(--bg-card)"
     >
       {#if $darkMode}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5">

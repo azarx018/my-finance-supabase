@@ -37,7 +37,7 @@
 </script>
 
 <BottomSheet {open} {onClose}>
-  <h2 class="text-sm font-semibold mb-4 text-txt-primary"><Icon name="plus" /> Kategori Baru</h2>
+  <h2 class="text-xl font-extrabold tracking-tight mb-4 text-txt-primary flex items-center gap-2"><Icon name="plus" /> Kategori Baru</h2>
   <div class="flex flex-col gap-3">
     <input
       bind:value={name}

@@ -38,16 +38,13 @@
       on:click={() => goto(item.path)}
       class="flex items-center gap-3 bg-base-card rounded-xl p-4 border border-border shadow-sm text-left active:scale-[0.98] transition-transform"
     >
-      <div
-        class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-        style="background: var(--primary-bg); color: var(--primary)"
-      >
+      <div class="em-tile" style="color: var(--primary)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
           {@html item.icon}
         </svg>
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-sm font-medium text-txt-primary">{item.label}</p>
+        <p class="text-base font-extrabold text-txt-primary">{item.label}</p>
         <p class="text-xs text-txt-secondary">{item.desc}</p>
       </div>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-txt-muted shrink-0">

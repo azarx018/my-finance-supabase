@@ -44,7 +44,7 @@
     class="w-full max-w-sm bg-base-card rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-border toast-in"
   >
     <div>
-      <div class="w-14 h-14 rounded-full grid place-items-center coin-spin mb-3" style="background: var(--coin); border: 2px solid var(--ink); box-shadow: var(--shadow-sm); color: #12151f">
+      <div class="w-14 h-14 rounded-full grid place-items-center coin-spin mb-3" style="background: var(--coin); border: 2px solid var(--line); box-shadow: var(--shadow-sm); color: #12151f">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" class="w-7 h-7">
           <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v10M9.5 9.5h4a1.5 1.5 0 010 3h-3a1.5 1.5 0 000 3h4" />
         </svg>
@@ -100,7 +100,7 @@
       type="submit"
       disabled={loading}
       class="rounded-xl py-3.5 text-sm font-extrabold text-white disabled:opacity-60 border-2"
-      style="background: var(--primary); border-color: var(--ink); box-shadow: var(--shadow-sm)"
+      style="background: var(--primary); border-color: var(--line); box-shadow: var(--shadow-sm)"
     >
       {loading ? 'Memproses…' : mode === 'signin' ? 'Masuk' : mode === 'signup' ? 'Daftar' : 'Kirim Link Reset'}
     </button>

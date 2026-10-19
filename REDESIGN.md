@@ -16,3 +16,11 @@ Logika data (Dexie, Supabase, sync, asisten AI) TIDAK diubah. Yang berubah hanya
 
 Belum diverifikasi lewat `npm run build` (tidak ada akses jaringan di sini): jalankan
 `npm install && npm run check && npm run build` lalu cek tiap halaman di HP dan desktop.
+
+## Revisi ronde 2
+- Mode gelap diperhalus: garis & bayangan keras pakai `--line` (abu-indigo lembut, bukan putih menyala), latar lebih gelap,
+  blob/dot latar diredam, hero tidak menyilaukan.
+- Tombol + (FAB): animasi denyut kuning dihapus.
+- Semua halaman diseragamkan: judul seksi & judul sheet lebih tegas, tombol aksi utama (primary/expense/info) di semua sheet
+  memakai gaya sticker yang sama, keadaan kosong jadi kotak putus-putus, Modal & bubble asisten ikut tema,
+  ubin ikon kategori berwarna per kategori (`lib/data/catColor.ts`), halaman Lainnya memakai ubin ikon.

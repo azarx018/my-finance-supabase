@@ -178,7 +178,7 @@
 
 <div class="p-4 flex flex-col gap-6 page-narrow">
   <section>
-    <h2 class="text-xs font-medium text-txt-secondary mb-3">Status Sinkronisasi</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Status Sinkronisasi</h2>
     <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
       <div class="flex items-center justify-between">
         <span class="text-sm text-txt-primary">Koneksi</span>
@@ -229,7 +229,7 @@
 
   {#if failedEntries.length > 0}
     <section>
-      <h2 class="text-xs font-medium text-txt-secondary mb-3">Data Gagal Sync ({failedEntries.length})</h2>
+      <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Data Gagal Sync ({failedEntries.length})</h2>
       <div class="bg-base-card rounded-xl shadow-sm border p-4 flex flex-col gap-3" style="border-color: var(--warn)">
         <p class="text-xs text-txt-secondary">
           Baris-baris ini ditolak server dan <b>tidak akan pernah berhasil</b> kalau dicoba ulang apa
@@ -275,7 +275,7 @@
 
   {#if $assistantMemory.length > 0}
     <section>
-      <h2 class="text-xs font-medium text-txt-secondary mb-3"><Icon name="sparkle" /> Yang Diinget Asisten AI ({$assistantMemory.length})</h2>
+      <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5"><Icon name="sparkle" /> Yang Diinget Asisten AI ({$assistantMemory.length})</h2>
       <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
         <p class="text-xs text-txt-secondary">
           Fakta-fakta ini diinget asisten lintas sesi & device. Hapus kalau ada yang salah paham.
@@ -298,7 +298,7 @@
   {/if}
 
   <section>
-    <h2 class="text-xs font-medium text-txt-secondary mb-3">Tampilan</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Tampilan</h2>
     <ThemeSwitcher />
   </section>
 
@@ -315,7 +315,7 @@
   {/if}
 
   <section>
-    <h2 class="text-xs font-medium text-txt-secondary mb-3">Pengingat Harian</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Pengingat Harian</h2>
     <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-3">
       <label class="flex items-center justify-between">
         <span class="text-sm text-txt-primary">Ingatkan catat pengeluaran</span>
@@ -336,7 +336,7 @@
   </section>
 
   <section>
-    <h2 class="text-xs font-medium text-txt-secondary mb-3">Data & Backup</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Data & Backup</h2>
     <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
       <p class="text-xs text-txt-secondary mb-1">
         Data kamu sudah otomatis tersinkron ke cloud — file di bawah ini untuk backup manual
@@ -369,7 +369,7 @@
   </section>
 
   <section>
-    <h2 class="text-xs font-medium text-txt-secondary mb-3">Zona Berbahaya</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Zona Berbahaya</h2>
     <div class="bg-base-card rounded-xl shadow-sm border p-4 flex flex-col gap-3" style="border-color: var(--expense)">
       {#if dangerMode === 'none'}
         <div>
@@ -484,7 +484,7 @@
   </section>
 
   <section>
-    <h2 class="text-xs font-medium text-txt-secondary mb-3">Akun</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Akun</h2>
     <button
       on:click={signOut}
       class="w-full text-sm font-medium border border-border rounded-lg py-3"

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { catColor } from '$lib/data/catColor';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { transactions, wallets, customCategories } from '$lib/stores/data';
@@ -104,7 +105,7 @@
       </button>
     {:else if isLinked}
       <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left">
-        <span class="em-tile">{cat?.emoji ?? '💸'}</span>
+        <span class="em-tile" style="--k: {catColor(cat?.id)}">{cat?.emoji ?? '💸'}</span>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-txt-primary truncate">{t.description}</p>
           <p class="text-xs text-txt-secondary truncate">
@@ -121,7 +122,7 @@
         on:click={() => openEdit(t)}
         class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left"
       >
-        <span class="em-tile">{cat?.emoji ?? '💸'}</span>
+        <span class="em-tile" style="--k: {catColor(cat?.id)}">{cat?.emoji ?? '💸'}</span>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-txt-primary truncate">{t.description}</p>
           <p class="text-xs text-txt-secondary truncate">

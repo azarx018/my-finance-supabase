@@ -39,7 +39,7 @@
 </script>
 
 <BottomSheet {open} {onClose}>
-  <h2 class="text-sm font-semibold mb-1 text-txt-primary"><Icon name="bell" /> Tambah Pengingat</h2>
+  <h2 class="text-xl font-extrabold tracking-tight mb-1 text-txt-primary flex items-center gap-2"><Icon name="bell" /> Tambah Pengingat</h2>
   {#if date}
     <p class="text-xs text-txt-secondary mb-4">Tanggal: {formatDate(date)}</p>
   {/if}

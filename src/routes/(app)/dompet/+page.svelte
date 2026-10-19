@@ -53,7 +53,7 @@
       on:click={() => openEdit(w)}
       class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-4 border border-border text-left"
     >
-      <span class="em-tile">{w.emoji}</span>
+      <span class="em-tile" style="--k: var(--info)">{w.emoji}</span>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium text-txt-primary truncate">{w.name}</p>
         <p class="text-xs text-txt-secondary">{stats[w.id]?.count ?? 0} transaksi</p>

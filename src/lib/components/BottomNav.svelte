@@ -11,14 +11,14 @@
 
 <nav
   class="fixed inset-x-3.5 mx-auto z-20 flex p-1.5 max-w-[520px] min-[900px]:hidden"
-  style="bottom: calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg-card); border: 2px solid var(--ink); border-radius: 26px; box-shadow: var(--shadow-sm)"
+  style="bottom: calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg-card); border: 2px solid var(--line); border-radius: 26px; box-shadow: var(--shadow-sm)"
   aria-label="Navigasi utama"
 >
   <i
     class="absolute top-1.5 bottom-1.5 left-1.5 pointer-events-none"
     style="width: calc((100% - 12px) / {NAV_ITEMS.length}); transform: translateX({Math.max(idx, 0) * 100}%); opacity: {idx < 0
       ? 0
-      : 1}; background: var(--primary); border: 2px solid var(--ink); border-radius: 20px; transition: transform 0.5s cubic-bezier(0.3, 1.5, 0.5, 1), opacity 0.2s"
+      : 1}; background: var(--primary); border: 2px solid var(--line); border-radius: 20px; transition: transform 0.5s cubic-bezier(0.3, 1.5, 0.5, 1), opacity 0.2s"
   ></i>
   {#each NAV_ITEMS as item (item.id)}
     {@const active = pageId === item.id}

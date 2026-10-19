@@ -13,7 +13,7 @@
   {#each $toasts as t (t.id)}
     <div
       class="toast-in flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold max-w-sm text-center"
-      style="background: var(--ink); color: var(--bg-base); border: 2px solid var(--ink); box-shadow: 3px 3px 0 {t.kind === 'error'
+      style="background: var(--ink); color: var(--bg-base); border: 2px solid var(--line); box-shadow: 3px 3px 0 {t.kind === 'error'
         ? 'var(--expense)'
         : t.kind === 'info'
           ? 'var(--info)'

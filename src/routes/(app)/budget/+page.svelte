@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { catColor } from '$lib/data/catColor';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { budgets, transactions, customCategories } from '$lib/stores/data';
@@ -117,7 +118,7 @@
       {@const bColor = bpct >= 90 ? 'var(--expense)' : bpct >= 70 ? 'var(--warn)' : 'var(--income)'}
       <div class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
         <div class="flex items-center gap-3">
-          <span class="em-tile">{cat.emoji}</span>
+          <span class="em-tile" style="--k: {catColor(cat?.id)}">{cat.emoji}</span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-txt-primary">{cat.name}</p>
             <p class="text-xs text-txt-secondary">{formatRpC(used)} dari {formatRpC(b.limit_amount as number)}</p>

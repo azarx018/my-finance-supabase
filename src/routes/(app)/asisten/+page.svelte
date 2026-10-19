@@ -701,9 +701,9 @@
           {:else}
             <div
               class="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm {m.role === 'user'
-                ? 'text-white rounded-br-sm'
-                : 'bg-base-card border border-border text-txt-primary rounded-bl-sm'}"
-              style={m.role === 'user' ? 'background: var(--primary)' : ''}
+                ? 'text-white rounded-br-sm font-semibold border-2'
+                : 'bg-base-card border border-border text-txt-primary rounded-bl-sm shadow-sm'}"
+              style={m.role === 'user' ? 'background: var(--primary); border-color: var(--line); box-shadow: var(--shadow-sm)' : ''}
             >
               {m.text}
             </div>

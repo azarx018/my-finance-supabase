@@ -101,7 +101,7 @@
     {@const pct = b.target && (b.target as number) > 0 ? Math.min(Math.round((bal / (b.target as number)) * 100), 100) : null}
     <div class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
       <div class="flex items-center gap-3">
-        <span class="em-tile">{b.emoji}</span>
+        <span class="em-tile" style="--k: var(--coin)">{b.emoji}</span>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-txt-primary truncate">
             {b.name}

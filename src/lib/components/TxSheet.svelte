@@ -283,7 +283,7 @@
 </script>
 
 <BottomSheet {open} {onClose}>
-  <h2 class="text-sm font-semibold mb-4 text-txt-primary">
+  <h2 class="text-xl font-extrabold tracking-tight mb-4 text-txt-primary flex items-center gap-2">
     {editing ? ' Edit Transaksi' : ' Catat Transaksi'}
   </h2>
 
