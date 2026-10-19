@@ -94,7 +94,7 @@
 
 <BottomSheet {open} {onClose}>
   <h2 class="text-sm font-semibold mb-4 text-txt-primary">
-    {editing ? '✏️ Edit Transfer' : '🔁 Transfer Antar Dompet'}
+    {editing ? ' Edit Transfer' : ' Transfer Antar Dompet'}
   </h2>
 
   <div class="flex flex-col gap-3">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { debts as debtsStore, debtPayments, transactions } from '$lib/stores/data';
   import { formatRp, formatRpC, formatDateShort } from '$lib/data/format';
@@ -98,8 +99,8 @@
   }
 </script>
 
-<div class="p-4 flex flex-col gap-4 max-w-md mx-auto">
-  <section class="rounded-xl p-5 text-white shadow-lg" style="background: linear-gradient(135deg, var(--expense), #f97373)">
+<div class="p-4 flex flex-col gap-4 page-wrap">
+  <section class="rounded-xl p-5 text-white shadow-lg span-all" style="background: linear-gradient(135deg, var(--expense), #f97373)">
     <p class="text-sm opacity-80">Total Hutang Belum Lunas</p>
     <p class="text-2xl font-semibold mt-1">{formatRp(totalUnpaid)}</p>
     <div class="flex gap-4 mt-3 text-xs opacity-90">
@@ -109,7 +110,7 @@
     </div>
   </section>
 
-  <div class="flex gap-2 overflow-x-auto pb-1">
+  <div class="flex gap-2 overflow-x-auto pb-1 span-all">
     {#each [{ id: 'all', label: 'Semua' }, { id: 'unpaid', label: 'Belum Lunas' }, { id: 'paid', label: 'Lunas' }, { id: 'urgent', label: 'Mendesak' }] as f (f.id)}
       <button
         on:click={() => (filter = f.id as typeof filter)}
@@ -127,7 +128,7 @@
   </div>
 
   {#if sorted.length === 0}
-    <p class="text-xs text-txt-secondary text-center py-12">
+    <p class="text-xs text-txt-secondary text-center py-12 span-all">
       {filter === 'urgent' ? 'Tidak ada hutang mendesak' : 'Belum ada hutang. Tap + untuk mencatat.'}
     </p>
   {/if}
@@ -139,7 +140,7 @@
     {@const isLent = d.dtype === 'lent'}
     {@const isUrgent = !d.paid && days !== null && days <= 3}
     {@const isWarn = !d.paid && days !== null && days > 3 && days <= 7}
-    {@const dayLabel = days === null ? '-' : days < 0 ? `⚠️ Terlambat ${Math.abs(days)} hari` : days === 0 ? '⚠️ Jatuh tempo hari ini' : `${formatDateShort(d.due_date as string)} (${days} hari lagi)`}
+    {@const dayLabel = days === null ? '-' : days < 0 ? ` Terlambat ${Math.abs(days)} hari` : days === 0 ? ' Jatuh tempo hari ini' : `${formatDateShort(d.due_date as string)} (${days} hari lagi)`}
     <div
       class="bg-base-card rounded-xl shadow-sm p-4 border"
       style="border-color: {d.paid ? 'var(--border)' : isUrgent ? 'var(--expense)' : isWarn ? 'var(--warn)' : 'var(--border)'}"
@@ -163,13 +164,13 @@
         </div>
         <div class="text-right shrink-0">
           {#if d.paid}
-            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style="background: var(--income-bg); color: var(--income)">✅ Lunas</span>
+            <span class="sticker text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background: var(--income-bg); color: var(--income)"><Icon name="check" /> Lunas</span>
           {:else if isUrgent}
-            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style="background: var(--expense-bg); color: var(--expense)">🔴 Mendesak</span>
+            <span class="sticker text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background: var(--expense-bg); color: var(--expense)">🔴 Mendesak</span>
           {:else if isWarn}
-            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style="background: var(--warn-bg); color: var(--warn)">⚠️ Segera</span>
+            <span class="sticker text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background: var(--warn-bg); color: var(--warn)"><Icon name="alert" /> Segera</span>
           {:else}
-            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style="background: var(--bg-card2); color: var(--txt-secondary)">Belum Lunas</span>
+            <span class="sticker text-[10px] px-1.5 py-0.5 rounded-full font-bold" style="background: var(--bg-card2); color: var(--txt-secondary)">Belum Lunas</span>
           {/if}
           <p class="text-sm font-semibold mt-1" style="color: {isLent ? 'var(--income)' : 'var(--expense)'}">
             {isLent ? '+' : '-'}{formatRpC(d.amount as number)}
@@ -223,7 +224,7 @@
             class="flex-1 text-xs py-2 rounded-lg text-white"
             style="background: {isLent ? 'var(--info)' : 'var(--primary)'}"
           >
-            {isLent ? '💰 Terima' : '💳 Bayar'}
+            {isLent ? ' Terima' : ' Bayar'}
           </button>
         {:else}
           <button on:click={() => markUnpaid(d)} class="flex-1 text-xs py-2 rounded-lg border border-border text-txt-secondary">
@@ -231,7 +232,7 @@
           </button>
         {/if}
         <button on:click={() => openEdit(d)} class="text-xs py-2 px-3 rounded-lg border border-border text-txt-secondary">
-          ✏️
+          <Icon name="edit" />
         </button>
         <button
           on:click={() => removeDebt(d)}
@@ -240,7 +241,7 @@
           class="text-xs py-2 px-3 rounded-lg border border-border disabled:opacity-40"
           style="color: {d.paid ? 'var(--expense)' : 'var(--txt-muted)'}"
         >
-          🗑️
+          <Icon name="trash" />
         </button>
       </div>
     </div>

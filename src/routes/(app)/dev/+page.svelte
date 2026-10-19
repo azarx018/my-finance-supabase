@@ -51,7 +51,7 @@
   }
 </script>
 
-<div class="p-4 flex flex-col gap-6 max-w-md mx-auto">
+<div class="p-4 flex flex-col gap-6 page-narrow">
   <section>
     <h2 class="text-xs font-medium text-txt-secondary mb-3">Preview tema</h2>
     <ThemeSwitcher />

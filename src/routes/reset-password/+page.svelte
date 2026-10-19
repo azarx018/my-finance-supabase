@@ -34,11 +34,16 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-base-bg font-main p-6">
-  <div class="w-full max-w-sm bg-base-card rounded-xl shadow-md p-6 flex flex-col gap-4">
+<div class="min-h-screen flex items-center justify-center font-main p-6">
+  <div class="w-full max-w-sm bg-base-card rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-border toast-in">
     <div>
-      <h1 class="text-lg font-semibold text-txt-primary">Buat Password Baru</h1>
-      <p class="text-xs text-txt-secondary mt-1">Masukkan password baru untuk akun My Finance kamu.</p>
+      <div class="w-14 h-14 rounded-full grid place-items-center coin-spin mb-3" style="background: var(--coin); border: 2px solid var(--ink); box-shadow: var(--shadow-sm); color: #12151f">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" class="w-7 h-7">
+          <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v10M9.5 9.5h4a1.5 1.5 0 010 3h-3a1.5 1.5 0 000 3h4" />
+        </svg>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-txt-primary">Buat Password Baru</h1>
+      <p class="text-sm text-txt-secondary mt-1">Masukkan password baru untuk akun My Finance kamu.</p>
     </div>
 
     {#if done}
@@ -67,8 +72,8 @@
         <button
           type="submit"
           disabled={loading}
-          class="rounded-lg py-3 text-sm font-medium text-white disabled:opacity-60"
-          style="background: var(--primary)"
+          class="rounded-xl py-3.5 text-sm font-extrabold text-white disabled:opacity-60 border-2"
+          style="background: var(--primary); border-color: var(--ink); box-shadow: var(--shadow-sm)"
         >
           {loading ? 'Menyimpan…' : 'Simpan Password Baru'}
         </button>

@@ -43,6 +43,42 @@ export const NAV_ITEMS: NavItem[] = [
   }
 ];
 
+// Menu lengkap untuk sidebar (tampilan desktop): 5 tab utama + halaman-halaman
+// yang di HP diakses lewat menu "Lainnya" / ikon header.
+export const SIDEBAR_ITEMS: NavItem[] = [
+  ...NAV_ITEMS,
+  {
+    id: 'dompet',
+    label: 'Dompet',
+    path: '/dompet',
+    iconPath: '<path d="M3 6h18v14H3z"/><path d="M3 10h18"/><path d="M16 15h2"/>'
+  },
+  {
+    id: 'hutang',
+    label: 'Hutang',
+    path: '/hutang',
+    iconPath: '<path d="M2 5h20v14H2z"/><path d="M2 10h20"/><path d="M6 15h4"/>'
+  },
+  {
+    id: 'kalender',
+    label: 'Kalender',
+    path: '/kalender',
+    iconPath: '<path d="M4 5h16v16H4z"/><path d="M4 10h16M8 3v4M16 3v4"/>'
+  },
+  {
+    id: 'asisten',
+    label: 'Asisten AI',
+    path: '/asisten',
+    iconPath: '<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>'
+  },
+  {
+    id: 'settings',
+    label: 'Pengaturan',
+    path: '/settings',
+    iconPath: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
+  }
+];
+
 // Accessed via the ✨ icon in the header (not a bottom-nav tab — it's
 // reachable from every page, not just one), so it gets a back button
 // like the other SUB_PAGES below rather than sitting in NAV_ITEMS.

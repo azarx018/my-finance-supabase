@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { transactions, reminders, customCategories } from '$lib/stores/data';
   import { getCatList, type Cat } from '$lib/data/categories';
@@ -109,7 +110,7 @@
   }
 </script>
 
-<div class="p-4 flex flex-col gap-4 max-w-md mx-auto">
+<div class="p-4 flex flex-col gap-4 page-narrow">
   <div class="flex items-center justify-between">
     <button on:click={prevMonth} class="w-8 h-8 flex items-center justify-center text-txt-secondary" aria-label="Bulan sebelumnya">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4"><polyline points="15 18 9 12 15 6" /></svg>
@@ -180,16 +181,16 @@
     </div>
 
     {#if !selectedDate}
-      <p class="text-xs text-txt-secondary text-center py-10">Pilih tanggal di kalender untuk lihat agenda.</p>
+      <p class="text-xs text-txt-secondary text-center py-10 span-all">Pilih tanggal di kalender untuk lihat agenda.</p>
     {:else if dayTxs.length === 0 && dayRems.length === 0}
-      <p class="text-xs text-txt-secondary text-center py-10">
+      <p class="text-xs text-txt-secondary text-center py-10 span-all">
         Tidak ada agenda. Tap "+ Pengingat" atau catat transaksi lewat tab Transaksi.
       </p>
     {:else}
       <div class="flex flex-col gap-2">
         {#each dayRems as r (r.id)}
           <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border">
-            <span class="text-lg">🔔</span>
+            <span class="text-lg"><Icon name="bell" /></span>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-txt-primary truncate">{r.title}</p>
               {#if r.amount}<p class="text-xs text-txt-secondary">{formatRpC(r.amount as number)}</p>{/if}
@@ -205,7 +206,7 @@
           {@const dt = getDisplayType(t)}
           {@const cat = catOf(t)}
           <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border">
-            <span class="text-lg">{cat.emoji}</span>
+            <span class="em-tile">{cat.emoji}</span>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-txt-primary truncate">{t.description || 'Transaksi'}</p>
               <p class="text-xs text-txt-secondary">{cat.name}</p>

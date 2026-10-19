@@ -32,7 +32,7 @@
   ];
 </script>
 
-<div class="p-4 flex flex-col gap-3 max-w-md mx-auto">
+<div class="p-4 flex flex-col gap-3 page-narrow">
   {#each items as item (item.path)}
     <button
       on:click={() => goto(item.path)}

@@ -114,7 +114,7 @@
 
 <BottomSheet {open} {onClose}>
   <h2 class="text-sm font-semibold mb-4 text-txt-primary">
-    {mode === 'deposit' ? '⬆️ Tabung' : '⬇️ Tarik dari Tabungan'}
+    {mode === 'deposit' ? ' Tabung' : ' Tarik dari Tabungan'}
   </h2>
   <div class="flex flex-col gap-3">
     <div class="flex gap-2 overflow-x-auto pb-1">

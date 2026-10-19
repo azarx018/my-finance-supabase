@@ -8,9 +8,14 @@
   $: variant = FAB_VARIANT[pageId] ?? 'default';
 
   const bg: Record<string, string> = {
-    default: 'var(--primary)',
+    default: 'var(--coin)',
     wallet: 'var(--info)',
     expense: 'var(--expense)'
+  };
+  const fg: Record<string, string> = {
+    default: '#12151f',
+    wallet: '#ffffff',
+    expense: '#ffffff'
   };
 </script>
 
@@ -18,10 +23,10 @@
   <button
     on:click={onClick}
     aria-label="Tambah"
-    class="fixed bottom-20 right-4 w-14 h-14 rounded-full flex items-center justify-center text-white z-30"
-    style="background: {bg[variant]}; box-shadow: 0 8px 24px -4px {bg[variant]}66, var(--shadow-lg)"
+    class="fab"
+    style="background: {bg[variant]}; color: {fg[variant]}"
   >
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-6 h-6">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="w-7 h-7">
       <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   </button>

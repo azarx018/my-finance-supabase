@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import BottomSheet from './BottomSheet.svelte';
   import NewCategorySheet from './NewCategorySheet.svelte';
   import { getCatList, type Cat } from '$lib/data/categories';
@@ -74,7 +75,7 @@
   }}
 >
   <h2 class="text-sm font-semibold mb-4 text-txt-primary">
-    {editing ? '✏️ Edit Budget' : '💰 Tambah Budget'}
+    {editing ? ' Edit Budget' : ' Tambah Budget'}
   </h2>
   <div class="flex flex-col gap-3">
     <div class="flex gap-2 overflow-x-auto pb-1">
@@ -82,7 +83,7 @@
         on:click={() => (newCatOpen = true)}
         class="flex flex-col items-center gap-1 px-3 py-2 rounded-lg border-2 border-dashed border-border shrink-0 min-w-[64px]"
       >
-        <span class="text-xl">➕</span>
+        <span class="text-xl"><Icon name="plus" /></span>
         <span class="text-[10px] text-txt-secondary">Baru</span>
       </button>
       {#each available as c (c.id)}
@@ -105,7 +106,7 @@
               class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-white text-[9px] flex items-center justify-center"
               style="background: var(--expense)"
             >
-              ✕
+              <Icon name="x" />
             </button>
           {/if}
         </div>

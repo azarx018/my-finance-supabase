@@ -25,33 +25,30 @@
 </script>
 
 <header
-  class="h-14 flex items-center justify-between px-4 border-b border-border bg-base-nav/90 backdrop-blur sticky top-0 z-20"
+  class="h-16 flex items-center justify-between px-5 min-[900px]:px-8 sticky top-0 z-20 backdrop-blur"
+  style="background: color-mix(in srgb, var(--bg-base) 85%, transparent)"
 >
   <div class="flex items-center gap-2 min-w-0">
     {#if isSubPage}
       <button
         on:click={() => history.back()}
         aria-label="Kembali"
-        class="w-8 h-8 flex items-center justify-center text-txt-secondary shrink-0 active:scale-90 transition-transform"
+        class="w-10 h-10 grid place-items-center shrink-0 rounded-xl"
+        style="border: 2px solid var(--ink); background: var(--bg-card)"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-5 h-5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="w-5 h-5">
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
-    {:else}
-      <div
-        class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
-        style="background: linear-gradient(135deg, var(--primary), var(--primary-light))"
-      >
-        <div class="w-2.5 h-2.5 rounded-full bg-white/90"></div>
-      </div>
     {/if}
-    <span class="text-sm font-semibold truncate">{PAGE_TITLES[pageId] ?? ''}</span>
+    <h1 class="text-2xl min-[900px]:text-3xl font-extrabold tracking-tight truncate" style="letter-spacing: -0.04em">
+      {PAGE_TITLES[pageId] ?? ''}
+    </h1>
   </div>
 
-  <div class="flex items-center gap-1 shrink-0">
+  <div class="flex items-center gap-2 shrink-0">
     <div
-      class="w-9 h-9 flex items-center justify-center"
+      class="w-10 h-10 grid place-items-center"
       style="color: {online ? 'var(--txt-muted)' : 'var(--warn)'}"
       title={online ? 'Online — tersinkron otomatis' : 'Offline — perubahan tersimpan lokal'}
       aria-label={online ? 'Status: online' : 'Status: offline'}
@@ -75,28 +72,23 @@
         </svg>
       {/if}
     </div>
+    <!-- Di desktop, Asisten AI & Lainnya sudah ada di sidebar. -->
     <button
       on:click={() => goto('/asisten')}
       disabled={pageId === 'asisten'}
       aria-label="Asisten AI"
-      class="w-9 h-9 flex items-center justify-center text-txt-secondary active:scale-90 transition-transform disabled:opacity-40 disabled:pointer-events-none"
+      class="min-[900px]:hidden w-11 h-11 grid place-items-center rounded-xl disabled:opacity-40 disabled:pointer-events-none"
+      style="border: 2px solid var(--ink); background: var(--bg-card)"
     >
-      <!-- Sparkles — same stroke-based style as the other header icons
-           (fill="none", stroke-width 2), just like online/dark-mode. -->
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
-        <path
-          d="M9.94 15.5a2 2 0 00-1.44-1.44L2.36 12.48a.5.5 0 010-.96l6.14-1.58A2 2 0 009.94 8.5l1.58-6.14a.5.5 0 01.96 0L14.06 8.5a2 2 0 001.44 1.44l6.14 1.58a.5.5 0 010 .96l-6.14 1.58a2 2 0 00-1.44 1.44l-1.58 6.14a.5.5 0 01-.96 0z"
-        />
-        <path d="M20 3v4" />
-        <path d="M22 5h-4" />
-        <path d="M4 17v2" />
-        <path d="M5 18H3" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+        <path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" />
       </svg>
     </button>
     <button
       on:click={() => goto('/lainnya')}
       aria-label="Menu lainnya"
-      class="w-9 h-9 flex items-center justify-center text-txt-secondary active:scale-90 transition-transform"
+      class="min-[900px]:hidden w-11 h-11 grid place-items-center rounded-xl"
+      style="border: 2px solid var(--ink); background: var(--bg-card)"
     >
       <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
         <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
@@ -105,10 +97,11 @@
     <button
       on:click={() => darkMode.update((v) => !v)}
       aria-label="Ganti mode gelap/terang"
-      class="w-9 h-9 flex items-center justify-center text-txt-secondary active:scale-90 transition-transform"
+      class="w-11 h-11 grid place-items-center rounded-xl"
+      style="border: 2px solid var(--ink); background: var(--bg-card)"
     >
       {#if $darkMode}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5">
           <circle cx="12" cy="12" r="5" />
           <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
           <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
@@ -116,7 +109,7 @@
           <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
         </svg>
       {:else}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
         </svg>
       {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount } from 'svelte';
   import { liveQuery } from 'dexie';
   import { db } from '$lib/db/dexie';
@@ -175,7 +176,7 @@
   }
 </script>
 
-<div class="p-4 flex flex-col gap-6 max-w-md mx-auto">
+<div class="p-4 flex flex-col gap-6 page-narrow">
   <section>
     <h2 class="text-xs font-medium text-txt-secondary mb-3">Status Sinkronisasi</h2>
     <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
@@ -207,7 +208,7 @@
       {/if}
       {#if $lastSyncError}
         <p class="text-xs rounded-lg p-2 mt-1" style="background: var(--expense-bg); color: var(--expense)">
-          ⚠️ {$lastSyncError}
+          <Icon name="alert" /> {$lastSyncError}
         </p>
       {/if}
       <button
@@ -215,7 +216,7 @@
         disabled={syncing || !online}
         class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary mt-1 disabled:opacity-40"
       >
-        {syncing ? 'Menyinkronkan…' : '🔄 Sinkron Sekarang'}
+        {syncing ? 'Menyinkronkan…' : ' Sinkron Sekarang'}
       </button>
       {#if pendingPush > 0}
         <p class="text-[10px] text-txt-muted">
@@ -249,14 +250,14 @@
                 on:click={() => handleRetryFailed(entry.fid)}
                 class="flex-1 text-xs py-1.5 rounded-lg border border-border text-txt-primary"
               >
-                🔄 Coba lagi
+                <Icon name="refresh" /> Coba lagi
               </button>
               <button
                 on:click={() => handleDiscardFailed(entry.fid)}
                 class="flex-1 text-xs py-1.5 rounded-lg border"
                 style="color: var(--expense); border-color: var(--expense)"
               >
-                🗑️ Buang
+                <Icon name="trash" /> Buang
               </button>
             </div>
           </div>
@@ -274,7 +275,7 @@
 
   {#if $assistantMemory.length > 0}
     <section>
-      <h2 class="text-xs font-medium text-txt-secondary mb-3">🧠 Yang Diinget Asisten AI ({$assistantMemory.length})</h2>
+      <h2 class="text-xs font-medium text-txt-secondary mb-3"><Icon name="sparkle" /> Yang Diinget Asisten AI ({$assistantMemory.length})</h2>
       <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
         <p class="text-xs text-txt-secondary">
           Fakta-fakta ini diinget asisten lintas sesi & device. Hapus kalau ada yang salah paham.
@@ -288,7 +289,7 @@
               class="text-xs shrink-0"
               style="color: var(--expense)"
             >
-              🗑️
+              <Icon name="trash" />
             </button>
           </div>
         {/each}
@@ -308,7 +309,7 @@
         class="w-full text-sm font-medium py-3 rounded-lg text-white"
         style="background: var(--primary)"
       >
-        📲 Install My Finance ke Layar Utama
+        <Icon name="phone" /> Install My Finance ke Layar Utama
       </button>
     </section>
   {/if}
@@ -345,19 +346,19 @@
         on:click={handleExportJSON}
         class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary text-left px-3"
       >
-        💾 Ekspor Backup JSON (semua data)
+        <Icon name="download" /> Ekspor Backup JSON (semua data)
       </button>
       <button
         on:click={handleExportCSV}
         class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary text-left px-3"
       >
-        📊 Ekspor CSV (transaksi saja)
+        <Icon name="chart" /> Ekspor CSV (transaksi saja)
       </button>
       <label
         class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary text-left px-3 cursor-pointer"
         style={importing ? 'opacity: 0.6; pointer-events: none' : ''}
       >
-        📥 {importing ? 'Mengimpor…' : 'Impor Backup JSON'}
+        <Icon name="download" /> {importing ? 'Mengimpor…' : 'Impor Backup JSON'}
         <input bind:this={fileInput} type="file" accept="application/json" class="hidden" on:change={handleImportFile} />
       </label>
       <p class="text-[10px] text-txt-muted mt-1">

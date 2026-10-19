@@ -48,7 +48,7 @@
 
 <BottomSheet {open} {onClose}>
   <h2 class="text-sm font-semibold mb-4 text-txt-primary">
-    {editing ? '✏️ Edit Kantong' : '🪣 Buat Kantong Tabungan'}
+    {editing ? ' Edit Kantong' : ' Buat Kantong Tabungan'}
   </h2>
   <div class="flex flex-col gap-3">
     <input

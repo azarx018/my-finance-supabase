@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount, tick } from 'svelte';
   import { transactions, customCategories, budgets, wallets, debts, assistantMemory } from '$lib/stores/data';
   import { session, getUserId } from '$lib/stores/session';
@@ -585,7 +586,7 @@
   }
 </script>
 
-<div class="flex flex-col h-[calc(100vh-3.5rem-6rem)] max-w-md mx-auto">
+<div class="flex flex-col h-[calc(100vh-4rem-9rem)] min-[900px]:h-[calc(100vh-4rem-3rem)] page-narrow">
   <div bind:this={scrollContainer} class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
     {#if !assistantConfigured}
       <div class="flex-1 flex flex-col items-center justify-center text-center gap-2 py-10">
@@ -715,7 +716,7 @@
               class="text-xs font-medium py-2 px-4 rounded-lg text-white"
               style="background: var(--primary)"
             >
-              ✅ Terapkan Semua ({batchUnappliedCount(m.batchId)})
+              <Icon name="check" /> Terapkan Semua ({batchUnappliedCount(m.batchId)})
             </button>
           </div>
         {/if}

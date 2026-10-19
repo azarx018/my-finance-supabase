@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import BottomSheet from './BottomSheet.svelte';
   import { CAT_EMOJIS } from '$lib/data/categories';
   import { upsertRecord } from '$lib/db/repo';
@@ -36,7 +37,7 @@
 </script>
 
 <BottomSheet {open} {onClose}>
-  <h2 class="text-sm font-semibold mb-4 text-txt-primary">➕ Kategori Baru</h2>
+  <h2 class="text-sm font-semibold mb-4 text-txt-primary"><Icon name="plus" /> Kategori Baru</h2>
   <div class="flex flex-col gap-3">
     <input
       bind:value={name}

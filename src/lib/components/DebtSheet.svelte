@@ -151,7 +151,7 @@
 
 <BottomSheet {open} {onClose}>
   <h2 class="text-sm font-semibold mb-4 text-txt-primary">
-    {editing ? '✏️ Edit Hutang' : '💳 Tambah Hutang'}
+    {editing ? ' Edit Hutang' : ' Tambah Hutang'}
   </h2>
 
   <div class="flex gap-2 mb-4">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import BottomSheet from './BottomSheet.svelte';
   import CatPill from './CatPill.svelte';
   import { onDestroy, onMount } from 'svelte';
@@ -283,7 +284,7 @@
 
 <BottomSheet {open} {onClose}>
   <h2 class="text-sm font-semibold mb-4 text-txt-primary">
-    {editing ? '✏️ Edit Transaksi' : '➕ Catat Transaksi'}
+    {editing ? ' Edit Transaksi' : ' Catat Transaksi'}
   </h2>
 
   <div class="flex gap-2 mb-4">
@@ -394,7 +395,7 @@
             class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
             style="background: var(--expense)"
           >
-            ✕
+            <Icon name="x" />
           </button>
         </div>
         {#if scanConfigured && type === 'expense'}
@@ -406,11 +407,11 @@
             style="border-color: var(--primary); color: var(--primary)"
           >
             {#if scanning}
-              ⏳ Membaca struk…
+              <Icon name="clock" /> Membaca struk…
             {:else if !online}
-              🪄 Baca Struk Otomatis (perlu online)
+              <Icon name="sparkle" /> Baca Struk Otomatis (perlu online)
             {:else}
-              🪄 Baca Struk Otomatis
+              <Icon name="sparkle" /> Baca Struk Otomatis
             {/if}
           </button>
         {/if}
@@ -428,7 +429,7 @@
             class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
             style="background: var(--expense)"
           >
-            ✕
+            <Icon name="x" />
           </button>
           {#if photoPending}
             <span

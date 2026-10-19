@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { WALLET_EMOJIS } from '$lib/data/categories';
   import { parseAmt } from '$lib/data/format';
   import type { ProposeWalletArgs } from '$lib/ai/assistant';
@@ -23,7 +24,7 @@
 </script>
 
 <div class="rounded-xl border p-3 flex flex-col gap-2 bg-base-card max-w-[90%]" style="border-color: var(--primary)">
-  <p class="text-xs font-semibold text-txt-primary">👛 Usulan Dompet Baru</p>
+  <p class="text-xs font-semibold text-txt-primary"><Icon name="wallet" /> Usulan Dompet Baru</p>
   {#if args.reasoning}
     <p class="text-xs text-txt-secondary">{args.reasoning}</p>
   {/if}
@@ -64,7 +65,7 @@
   />
 
   {#if applied}
-    <p class="text-xs text-center py-1.5 font-medium" style="color: var(--income)">✅ Sudah diterapkan</p>
+    <p class="text-xs text-center py-1.5 font-medium" style="color: var(--income)"><Icon name="check" /> Sudah diterapkan</p>
   {:else}
     <div class="flex gap-2 pt-1">
       <button on:click={onDismiss} class="flex-1 text-xs py-2 rounded-lg border border-border text-txt-secondary">

@@ -3,25 +3,43 @@
   import { NAV_ITEMS } from '$lib/nav/config';
 
   export let pageId: string;
+
+  // Indikator (pil) meluncur ke tab aktif. Komponen ini tidak di-remount saat
+  // pindah halaman, jadi perubahan transform otomatis dianimasikan CSS.
+  $: idx = NAV_ITEMS.findIndex((i) => i.id === pageId);
 </script>
 
 <nav
-  class="h-16 border-t border-border bg-base-nav/95 backdrop-blur flex items-stretch fixed bottom-0 inset-x-0 z-20"
+  class="fixed inset-x-3.5 mx-auto z-20 flex p-1.5 max-w-[520px] min-[900px]:hidden"
+  style="bottom: calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg-card); border: 2px solid var(--ink); border-radius: 26px; box-shadow: var(--shadow-sm)"
+  aria-label="Navigasi utama"
 >
+  <i
+    class="absolute top-1.5 bottom-1.5 left-1.5 pointer-events-none"
+    style="width: calc((100% - 12px) / {NAV_ITEMS.length}); transform: translateX({Math.max(idx, 0) * 100}%); opacity: {idx < 0
+      ? 0
+      : 1}; background: var(--primary); border: 2px solid var(--ink); border-radius: 20px; transition: transform 0.5s cubic-bezier(0.3, 1.5, 0.5, 1), opacity 0.2s"
+  ></i>
   {#each NAV_ITEMS as item (item.id)}
+    {@const active = pageId === item.id}
     <button
       on:click={() => goto(item.path)}
-      class="flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors"
-      style={pageId === item.id ? 'color: var(--primary)' : 'color: var(--txt-secondary)'}
+      aria-current={active ? 'page' : undefined}
+      class="relative z-10 flex-1 min-h-[58px] flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold"
+      style="color: {active ? 'var(--on-primary)' : 'var(--txt-secondary)'}"
     >
-      <span
-        class="flex items-center justify-center w-9 h-6 rounded-full transition-colors"
-        style={pageId === item.id ? 'background: var(--primary-bg)' : 'background: transparent'}
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="w-5 h-5"
+        style="transition: transform 0.25s; transform: {active ? 'scale(1.14) translateY(-1px)' : 'none'}"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
-          {@html item.iconPath}
-        </svg>
-      </span>
+        {@html item.iconPath}
+      </svg>
       <span>{item.label}</span>
     </button>
   {/each}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import BottomSheet from './BottomSheet.svelte';
   import { formatDate, parseAmt } from '$lib/data/format';
   import { upsertRecord } from '$lib/db/repo';
@@ -38,7 +39,7 @@
 </script>
 
 <BottomSheet {open} {onClose}>
-  <h2 class="text-sm font-semibold mb-1 text-txt-primary">🔔 Tambah Pengingat</h2>
+  <h2 class="text-sm font-semibold mb-1 text-txt-primary"><Icon name="bell" /> Tambah Pengingat</h2>
   {#if date}
     <p class="text-xs text-txt-secondary mb-4">Tanggal: {formatDate(date)}</p>
   {/if}

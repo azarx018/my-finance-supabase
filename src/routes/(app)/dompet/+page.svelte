@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { wallets, transactions } from '$lib/stores/data';
   import { computeWalletStats } from '$lib/data/wallets';
@@ -30,9 +31,9 @@
   $: stats = computeWalletStats($wallets, $transactions);
 </script>
 
-<div class="p-4 flex flex-col gap-3 max-w-md mx-auto">
+<div class="p-4 flex flex-col gap-3 page-wrap">
   {#if $wallets.length === 0}
-    <p class="text-xs text-txt-secondary text-center py-16">
+    <p class="text-xs text-txt-secondary text-center py-16 span-all">
       Belum ada dompet. Tap tombol + di kanan bawah untuk menambah.
     </p>
   {/if}
@@ -43,7 +44,7 @@
       class="w-full text-sm font-medium py-2.5 rounded-lg border flex items-center justify-center gap-2"
       style="border-color: var(--primary); color: var(--primary)"
     >
-      🔁 Transfer Antar Dompet
+      <Icon name="swap" /> Transfer Antar Dompet
     </button>
   {/if}
 
@@ -52,7 +53,7 @@
       on:click={() => openEdit(w)}
       class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-4 border border-border text-left"
     >
-      <span class="text-2xl">{w.emoji}</span>
+      <span class="em-tile">{w.emoji}</span>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium text-txt-primary truncate">{w.name}</p>
         <p class="text-xs text-txt-secondary">{stats[w.id]?.count ?? 0} transaksi</p>

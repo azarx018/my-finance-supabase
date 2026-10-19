@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { budgets, transactions, customCategories } from '$lib/stores/data';
   import { getCatList, type Cat } from '$lib/data/categories';
@@ -70,10 +71,10 @@
   }
 </script>
 
-<div class="p-4 flex flex-col gap-4 max-w-md mx-auto">
-  <p class="text-xs text-txt-secondary text-center -mb-2">{monthLabel}</p>
+<div class="p-4 flex flex-col gap-4 page-wrap">
+  <p class="text-xs text-txt-secondary text-center -mb-2 span-all">{monthLabel}</p>
 
-  <section class="grid grid-cols-3 gap-2">
+  <section class="grid grid-cols-3 gap-2 span-all">
     <div class="bg-base-card rounded-xl shadow-sm p-3 border border-border text-center">
       <p class="text-[10px] text-txt-secondary">Total Budget</p>
       <p class="text-sm font-semibold mt-1">{formatRpC(totalLimit)}</p>
@@ -91,7 +92,7 @@
   </section>
 
   {#if monthBudgets.length > 0}
-    <section class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
+    <section class="bg-base-card rounded-xl shadow-sm p-4 border border-border span-all">
       <div class="flex items-center justify-between text-xs mb-2">
         <span class="text-txt-secondary">Total terpakai {pct}%</span>
         <span style="color: {pctColor}">{formatRpC(totalActualUsed)} / {formatRpC(totalLimit)}</span>
@@ -104,10 +105,10 @@
   {/if}
 
   {#if monthBudgets.length === 0}
-    <p class="text-xs text-txt-secondary text-center py-12">Belum ada budget. Tap + untuk mulai.</p>
+    <p class="text-xs text-txt-secondary text-center py-12 span-all">Belum ada budget. Tap + untuk mulai.</p>
   {/if}
 
-  <section class="flex flex-col gap-3">
+  <section class="grid grid-cols-1 min-[700px]:grid-cols-2 gap-3 span-all">
     {#each monthBudgets as b (b.id)}
       {@const cat = catOf(b.cat_id as string)}
       {@const used = usedFor(b.cat_id as string)}
@@ -116,7 +117,7 @@
       {@const bColor = bpct >= 90 ? 'var(--expense)' : bpct >= 70 ? 'var(--warn)' : 'var(--income)'}
       <div class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
         <div class="flex items-center gap-3">
-          <span class="text-xl">{cat.emoji}</span>
+          <span class="em-tile">{cat.emoji}</span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-txt-primary">{cat.name}</p>
             <p class="text-xs text-txt-secondary">{formatRpC(used)} dari {formatRpC(b.limit_amount as number)}</p>
@@ -138,14 +139,14 @@
             on:click={() => openEdit(b)}
             class="flex-1 text-xs py-2 rounded-lg border border-border text-txt-secondary"
           >
-            ✏️ Edit
+            <Icon name="edit" /> Edit
           </button>
           <button
             on:click={() => removeBudget(b.id)}
             class="flex-1 text-xs py-2 rounded-lg border border-border"
             style="color: var(--expense)"
           >
-            🗑️ Hapus
+            <Icon name="trash" /> Hapus
           </button>
         </div>
       </div>
@@ -153,7 +154,7 @@
   </section>
 
   {#if untracked.length > 0}
-    <section>
+    <section class="span-all">
       <p class="text-xs font-medium text-txt-secondary mb-2">Pengeluaran Tanpa Budget</p>
       <div class="flex flex-col gap-2">
         {#each untracked as c}

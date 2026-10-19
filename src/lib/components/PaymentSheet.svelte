@@ -129,7 +129,7 @@
 <BottomSheet {open} {onClose}>
   {#if debt}
     <h2 class="text-sm font-semibold mb-1 text-txt-primary">
-      {isLent ? '💰 Terima Kembali' : '💳 Bayar Hutang'}
+      {isLent ? ' Terima Kembali' : ' Bayar Hutang'}
     </h2>
     <p class="text-xs text-txt-secondary mb-4">{isLent ? 'Dari' : 'Hutang ke'}: {debt.name}</p>
 

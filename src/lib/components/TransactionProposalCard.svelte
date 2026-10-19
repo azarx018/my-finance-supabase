@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { findCat, type Cat } from '$lib/data/categories';
   import { parseAmt, formatRpC } from '$lib/data/format';
   import type { ProposeTransactionArgs } from '$lib/ai/assistant';
@@ -59,7 +60,7 @@
 
 <div class="rounded-xl border p-3 flex flex-col gap-2 bg-base-card max-w-[90%]" style="border-color: var(--primary)">
   <p class="text-xs font-semibold text-txt-primary">
-    {type === 'income' ? '💰' : '🧾'} Usulan Transaksi {type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+    <Icon name={type === 'income' ? 'coin' : 'receipt'} /> Usulan Transaksi {type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
   </p>
 
   <div class="flex gap-2">
@@ -134,14 +135,14 @@
   {#if overBudget && !applied}
     {@const cat = findCat(categoryId, 'expense', expenseCategories)}
     <p class="text-[10px]" style="color: var(--warn, #eab308)">
-      ⚠️ Ini bakal bikin {cat?.name ?? categoryId} tembus budget ({formatRpC(alreadySpent + amount)} dari limit {formatRpC(
+      <Icon name="alert" /> Ini bakal bikin {cat?.name ?? categoryId} tembus budget ({formatRpC(alreadySpent + amount)} dari limit {formatRpC(
         budgetLimit ?? 0
       )})
     </p>
   {/if}
 
   {#if applied}
-    <p class="text-xs text-center py-1.5 font-medium" style="color: var(--income)">✅ Sudah diterapkan</p>
+    <p class="text-xs text-center py-1.5 font-medium" style="color: var(--income)"><Icon name="check" /> Sudah diterapkan</p>
   {:else}
     <div class="flex gap-2 pt-1">
       <button on:click={onDismiss} class="flex-1 text-xs py-2 rounded-lg border border-border text-txt-secondary">

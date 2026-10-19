@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   export let title: string;
   export let sprint: string;
 </script>
@@ -8,7 +9,7 @@
     class="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
     style="background: var(--primary-bg)"
   >
-    🛠️
+    <Icon name="tool" />
   </div>
   <p class="text-sm font-medium text-txt-primary">{title}</p>
   <p class="text-xs text-txt-secondary max-w-[240px]">

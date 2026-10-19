@@ -16,8 +16,8 @@
       {@const x = i * (barW * 2 + gap + 16) + 12}
       {@const incH = (d.income / maxV) * H}
       {@const expH = (d.expense / maxV) * H}
-      <rect x={x} y={H - incH} width={barW} height={incH} rx="2" fill="var(--income)" />
-      <rect x={x + barW + 2} y={H - expH} width={barW} height={expH} rx="2" fill="var(--expense)" />
+      <rect class="bar-rise" style="animation-delay: {i * 60}ms" x={x} y={H - incH} width={barW} height={incH} rx="3" fill="var(--income)" stroke="var(--ink)" stroke-width="1.5" />
+      <rect class="bar-rise" style="animation-delay: {i * 60 + 30}ms" x={x + barW + 2} y={H - expH} width={barW} height={expH} rx="3" fill="var(--expense)" stroke="var(--ink)" stroke-width="1.5" />
       <text x={x + barW} y={H + 16} font-size="9" text-anchor="middle" fill="var(--txt-secondary)">{d.label}</text>
     {/each}
   </svg>

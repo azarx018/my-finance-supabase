@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { transactions, wallets, customCategories } from '$lib/stores/data';
   import { filterTx, getDisplayType, type DateFilter } from '$lib/data/analytics';
@@ -47,7 +48,7 @@
   }
 </script>
 
-<div class="p-4 flex flex-col gap-3 max-w-md mx-auto">
+<div class="p-4 flex flex-col gap-3 page-narrow">
   <input
     bind:value={search}
     placeholder="Cari transaksi…"
@@ -77,7 +78,7 @@
   </div>
 
   {#if list.length === 0}
-    <p class="text-xs text-txt-secondary text-center py-16">Belum ada transaksi yang cocok.</p>
+    <p class="text-xs text-txt-secondary text-center py-16 span-all">Belum ada transaksi yang cocok.</p>
   {/if}
 
   {#each list as t (t.id)}
@@ -92,7 +93,7 @@
         on:click={() => openEdit(t)}
         class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left"
       >
-        <span class="text-xl">🔁</span>
+        <span class="text-xl"><Icon name="swap" /></span>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-txt-primary truncate">
             {w?.emoji ?? ''} {w?.name ?? ''} → {toW?.emoji ?? ''} {toW?.name ?? ''}
@@ -103,12 +104,12 @@
       </button>
     {:else if isLinked}
       <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left">
-        <span class="text-xl">{cat?.emoji ?? '💸'}</span>
+        <span class="em-tile">{cat?.emoji ?? '💸'}</span>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-txt-primary truncate">{t.description}</p>
           <p class="text-xs text-txt-secondary truncate">
             {cat?.name ?? ''} · {w?.emoji ?? ''} {w?.name ?? ''} · {formatDateShort(t.date as string)}
-            <span class="text-txt-muted">· 🔒 kelola dari {t.type === 'saving_transfer' ? 'Tabungan' : 'Hutang'}</span>
+            <span class="text-txt-muted">· <Icon name="lock" /> kelola dari {t.type === 'saving_transfer' ? 'Tabungan' : 'Hutang'}</span>
           </p>
         </div>
         <p class="text-sm font-semibold shrink-0" style="color: {dt === 'income' ? 'var(--income)' : 'var(--expense)'}">
@@ -120,7 +121,7 @@
         on:click={() => openEdit(t)}
         class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left"
       >
-        <span class="text-xl">{cat?.emoji ?? '💸'}</span>
+        <span class="em-tile">{cat?.emoji ?? '💸'}</span>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-txt-primary truncate">{t.description}</p>
           <p class="text-xs text-txt-secondary truncate">

@@ -54,7 +54,7 @@ export default {
         xl: 'var(--radius-xl)'
       },
       fontFamily: {
-        main: ['Sora', 'sans-serif'],
+        main: ['Bricolage Grotesque', 'Sora', 'sans-serif'],
         mono: ['DM Mono', 'monospace']
       },
       boxShadow: {

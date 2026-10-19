@@ -3,7 +3,7 @@
 
   export let data: CatBreakdown[] = [];
 
-  const COLORS = ['#22c55e', '#f43f5e', '#60a5fa', '#f97316', '#a855f7', '#14b8a6', '#fbbf24', '#e879f9'];
+  const COLORS = ['#12a15f', '#ff5c8a', '#2f5bea', '#ff8a3d', '#6b4df0', '#0ca5b0', '#ffc93c', '#e879f9'];
   const R = 40;
   const CIRC = 2 * Math.PI * R;
 
@@ -30,6 +30,7 @@
           cx="50"
           cy="50"
           r={R}
+          class="seg-in"
           fill="none"
           stroke={s.color}
           stroke-width="14"

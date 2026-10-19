@@ -72,8 +72,8 @@
   const rColor = (rate: number) => (rate >= 15 ? 'var(--income)' : rate >= 0 ? 'var(--warn)' : 'var(--expense)');
 </script>
 
-<div class="p-4 flex flex-col gap-4 max-w-md mx-auto">
-  <div class="flex gap-2 overflow-x-auto pb-1">
+<div class="p-4 flex flex-col gap-4 page-wrap">
+  <div class="flex gap-2 overflow-x-auto pb-1 span-all">
     {#each [{ id: 'month', label: 'Bulan Ini' }, { id: '3month', label: '3 Bulan' }, { id: '6month', label: '6 Bulan' }, { id: 'year', label: 'Tahun Ini' }] as p (p.id)}
       <button
         on:click={() => (period = p.id as DateFilter)}
@@ -90,7 +90,7 @@
     {/each}
   </div>
 
-  <section class="rounded-xl p-5 text-white shadow-lg" style="background: linear-gradient(135deg, var(--primary), var(--primary-light))">
+  <section class="rounded-xl p-5 text-white shadow-lg span-all" style="background: linear-gradient(135deg, var(--primary), var(--primary-light))">
     <p class="text-sm opacity-80">{periodLabel}</p>
     <div class="flex justify-between items-end mt-1">
       <p class="text-2xl font-semibold">{formatRpC(totals.saldo)}</p>
@@ -192,7 +192,7 @@
   <section>
     <p class="text-xs font-medium text-txt-secondary mb-2">Top 5 Pengeluaran</p>
     {#if topExpenses.length === 0}
-      <p class="text-xs text-txt-muted text-center py-6">Belum ada pengeluaran</p>
+      <p class="text-xs text-txt-muted text-center py-6 span-all">Belum ada pengeluaran</p>
     {/if}
     <div class="flex flex-col gap-2">
       {#each topExpenses as t, i (t.id)}

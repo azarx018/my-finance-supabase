@@ -2,9 +2,9 @@
   import { theme, darkMode } from '$lib/stores/ui';
 
   const options: { id: 'emerald' | 'pink' | 'ocean'; label: string; swatch: string }[] = [
-    { id: 'emerald', label: 'Emerald', swatch: '#16a34a' },
-    { id: 'pink', label: 'Cherry Blossom', swatch: '#ec6fa0' },
-    { id: 'ocean', label: 'Ocean Blue', swatch: '#0284c7' }
+    { id: 'emerald', label: 'Emerald', swatch: '#12a15f' },
+    { id: 'pink', label: 'Cherry Blossom', swatch: '#ff7db0' },
+    { id: 'ocean', label: 'Ocean Blue', swatch: '#0c72bd' }
   ];
 </script>
 
@@ -18,8 +18,8 @@
           ? 'var(--primary-bg)'
           : 'var(--bg-card)'}"
       >
-        <span class="w-6 h-6 rounded-full" style="background:{t.swatch}"></span>
-        <span class="text-xs text-txt-secondary">{t.label}</span>
+        <span class="w-7 h-7 rounded-full" style="background:{t.swatch}; border: 2px solid var(--ink)"></span>
+        <span class="text-xs font-semibold text-txt-primary">{t.label}</span>
       </button>
     {/each}
   </div>

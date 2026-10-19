@@ -2,25 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ================================================
-   MY FINANCE — DESIGN TOKENS
-   Ported from the original vanilla app's css/base.css.
-   Theme = body[data-theme="..."], toggled at runtime (not a
-   Tailwind compile-time variant) so switching themes never
-   requires a rebuild. Semantic warn(orange)/info(blue) stay
-   theme-neutral on purpose — they're status colors, not brand
-   identity.
-   ================================================ */
+/* ==========================================================================
+   My Finance — desain baru ("sticker" look): border tebal, bayangan keras,
+   ikon garis, animasi selalu menyala. Semua warna tetap lewat CSS variables
+   supaya ganti tema (emerald / pink / ocean) dan mode gelap tidak perlu rebuild.
+   ========================================================================== */
 
-body, body[data-theme='emerald'] {
-  --primary: #16a34a;
-  --primary-light: #22c55e;
-  --primary-bg: rgba(22, 163, 74, 0.1);
-  --primary-glow: rgba(34, 197, 94, 0.25);
-  --income: #16a34a;
-  --income-bg: rgba(22, 163, 74, 0.1);
-  --expense: #ef4444;
-  --expense-bg: rgba(239, 68, 68, 0.1);
+/* ---------- Tema warna ---------- */
+body,
+body[data-theme='emerald'] {
+  --primary: #0e8a52;
+  --primary-light: #1fbf75;
+  --primary-bg: rgba(14, 138, 82, 0.12);
+  --primary-glow: rgba(31, 191, 117, 0.3);
+  --income: #0e8a52;
+  --income-bg: rgba(14, 138, 82, 0.12);
+  --expense: #d8393f;
+  --expense-bg: rgba(216, 57, 63, 0.12);
   --accent-50: #f0fdf4;
   --accent-100: #dcfce7;
   --accent-200: #bbf7d0;
@@ -30,139 +28,438 @@ body, body[data-theme='emerald'] {
   --accent-800: #166534;
   --accent-900: #14532d;
 }
-
-/* v6.0 — "Soft Cherry Blossom" replaces the old dark-magenta pink theme.
-   Old (v5.8): primary #db2777, expense #9f1239 — a saturated, jewel-tone
-   pink read as "elegant dark". New direction: sakura petal pink — softer,
-   warmer, lighter accent scale (--accent-50 is a pale blush instead of a
-   near-white neutral tint), while keeping income/expense distinguishable
-   by shade like the original theme did. */
 body[data-theme='pink'] {
-  --primary: #ec6fa0;
-  --primary-light: #f7a8c4;
-  --primary-bg: rgba(236, 111, 160, 0.1);
-  --primary-glow: rgba(247, 168, 196, 0.3);
-  --income: #d6467e;
-  --income-bg: rgba(214, 70, 126, 0.1);
-  --expense: #b5305f;
-  --expense-bg: rgba(181, 48, 95, 0.12);
-  --accent-50: #fff5f8;
-  --accent-100: #fde6ef;
-  --accent-200: #fbc9de;
-  --accent-500: #ec6fa0;
-  --accent-600: #d6467e;
-  --accent-700: #b5305f;
-  --accent-800: #8c2249;
-  --accent-900: #611731;
+  --primary: #d1336f;
+  --primary-light: #ff7db0;
+  --primary-bg: rgba(209, 51, 111, 0.12);
+  --primary-glow: rgba(255, 125, 176, 0.3);
+  --income: #c2276a;
+  --income-bg: rgba(194, 39, 106, 0.1);
+  --expense: #8f1d4d;
+  --expense-bg: rgba(143, 29, 77, 0.12);
+  --accent-50: #fdf2f8;
+  --accent-100: #fce7f3;
+  --accent-200: #fbcfe8;
+  --accent-500: #ec4899;
+  --accent-600: #db2777;
+  --accent-700: #be185d;
+  --accent-800: #9d174d;
+  --accent-900: #831843;
 }
-
 body[data-theme='ocean'] {
-  --primary: #0284c7;
+  --primary: #0c72bd;
   --primary-light: #38bdf8;
-  --primary-bg: rgba(2, 132, 199, 0.1);
-  --primary-glow: rgba(56, 189, 248, 0.28);
+  --primary-bg: rgba(12, 114, 189, 0.12);
+  --primary-glow: rgba(56, 189, 248, 0.3);
   --income: #0891b2;
-  --income-bg: rgba(8, 145, 178, 0.1);
-  --expense: #ea580c;
-  --expense-bg: rgba(234, 88, 12, 0.1);
+  --income-bg: rgba(8, 145, 178, 0.12);
+  --expense: #c2410c;
+  --expense-bg: rgba(194, 65, 12, 0.12);
   --accent-50: #f0f9ff;
   --accent-100: #e0f2fe;
   --accent-200: #bae6fd;
-  --accent-500: #38bdf8;
+  --accent-500: #0ea5e9;
   --accent-600: #0284c7;
   --accent-700: #0369a1;
   --accent-800: #075985;
   --accent-900: #0c4a6e;
 }
 
-:root {
-  --warn: #f59e0b;
-  --warn-bg: rgba(245, 158, 11, 0.1);
-  --info: #3b82f6;
-  --info-bg: rgba(59, 130, 246, 0.1);
-
-  /* LIGHT MODE (default) */
-  --bg-base: #f8fafc;
+/* ---------- Token umum (mode terang) ---------- */
+body {
+  --ink: #12151f;
+  --on-primary: #ffffff;
+  --coin: #ffc93c;
+  --warn: #c77a00;
+  --warn-bg: rgba(199, 122, 0, 0.14);
+  --info: #2f5bea;
+  --info-bg: rgba(47, 91, 234, 0.12);
+  --bg-base: #eef2ff;
   --bg-card: #ffffff;
-  --bg-card2: #f1f5f9;
-  --bg-input: #f8fafc;
-  --bg-pill: #f1f5f9;
+  --bg-card2: #e4e9fb;
+  --bg-input: #ffffff;
+  --bg-pill: #e4e9fb;
   --bg-nav: #ffffff;
   --bg-sheet: #ffffff;
-
-  --txt-primary: #0f172a;
-  --txt-secondary: #64748b;
-  --txt-muted: #94a3b8;
-
-  --border: #e2e8f0;
-  --border-focus: rgba(22, 163, 74, 0.5);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
-
-  --radius-sm: 10px;
-  --radius-md: 14px;
+  --txt-primary: #12151f;
+  --txt-secondary: #586078;
+  --txt-muted: #7c829a;
+  --border: var(--ink);
+  --border-focus: var(--primary);
+  --shadow-sm: 3px 3px 0 var(--ink);
+  --shadow-md: 4px 4px 0 var(--ink);
+  --shadow-lg: 6px 6px 0 var(--ink);
+  --radius-sm: 12px;
+  --radius-md: 16px;
   --radius-lg: 20px;
-  --radius-xl: 24px;
-
-  --nav-h: 64px;
-  --header-h: 56px;
-  --tr: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --radius-xl: 26px;
 }
 
+/* ---------- Mode gelap ---------- */
 body.dark-mode {
-  --bg-base: #0a0f1a;
-  --bg-card: #111827;
-  --bg-card2: #1a2235;
-  --bg-input: #1a2235;
-  --bg-pill: #1a2235;
-  --bg-nav: #0d1526;
-  --bg-sheet: #111827;
-  --txt-primary: #f1f5f9;
-  --txt-secondary: #94a3b8;
-  --txt-muted: #475569;
-  --border: #1e293b;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --ink: #f2f4ff;
+  --on-primary: #06120c;
+  --warn: #ffc24d;
+  --warn-bg: rgba(255, 194, 77, 0.16);
+  --info: #7c9bff;
+  --info-bg: rgba(124, 155, 255, 0.16);
+  --bg-base: #0e1018;
+  --bg-card: #181b28;
+  --bg-card2: #232843;
+  --bg-input: #121523;
+  --bg-pill: #232843;
+  --bg-nav: #181b28;
+  --bg-sheet: #181b28;
+  --txt-primary: #f2f4ff;
+  --txt-secondary: #a3a9c2;
+  --txt-muted: #7a819e;
+}
+body.dark-mode,
+body.dark-mode[data-theme='emerald'] {
+  --primary: #3ddc97;
+  --primary-light: #7ff0bf;
+  --primary-bg: rgba(61, 220, 151, 0.16);
+  --income: #3ddc97;
+  --income-bg: rgba(61, 220, 151, 0.14);
+  --expense: #ff7a7f;
+  --expense-bg: rgba(255, 122, 127, 0.16);
+}
+body.dark-mode[data-theme='pink'] {
+  --primary: #ff7db0;
+  --primary-light: #ffb3d1;
+  --primary-bg: rgba(255, 125, 176, 0.16);
+  --income: #ffa6cf;
+  --income-bg: rgba(255, 166, 207, 0.14);
+  --expense: #ff5c7a;
+  --expense-bg: rgba(255, 92, 122, 0.16);
+}
+body.dark-mode[data-theme='ocean'] {
+  --primary: #5cc4ff;
+  --primary-light: #9ddcff;
+  --primary-bg: rgba(92, 196, 255, 0.16);
+  --income: #67e8f9;
+  --income-bg: rgba(103, 232, 249, 0.14);
+  --expense: #ff9a5c;
+  --expense-bg: rgba(255, 154, 92, 0.16);
+}
+/* Teks di atas warna utama jadi gelap di mode gelap (kontras). */
+body.dark-mode [style*='background: var(--primary)'],
+body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
+  color: #06120c;
 }
 
+/* ---------- Base ---------- */
 @layer base {
   * {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
   html {
     -webkit-text-size-adjust: 100%;
   }
   body {
-    background: var(--bg-base);
+    font-family: 'Bricolage Grotesque', 'Sora', system-ui, sans-serif;
+    font-optical-sizing: auto;
+    background: radial-gradient(color-mix(in srgb, var(--ink) 15%, transparent) 1.2px, transparent 1.4px) 0 0 / 22px
+        22px,
+      var(--bg-base);
     color: var(--txt-primary);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
-    transition:
-      background var(--tr),
-      color var(--tr);
+    transition: background-color 0.3s, color 0.3s;
   }
   ::-webkit-scrollbar {
     width: 0;
+    height: 0;
   }
-  /* Subtle, app-wide tap feedback — a small scale-down on press makes
-     every button/card feel responsive and "native" instead of static.
-     Skipped for anything already opting out via data-no-press, and
-     respects prefers-reduced-motion for accessibility. */
   button:not(:disabled) {
-    transition:
-      transform 0.12s cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 0.12s ease,
-      background var(--tr),
-      border-color var(--tr);
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s, background-color 0.2s, color 0.2s, border-color 0.2s;
   }
   button:not(:disabled):active {
-    transform: scale(0.97);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    button:not(:disabled):active {
-      transform: none;
-    }
+    transform: scale(0.96);
   }
 }
+
+/* ---------- Gaya global (setelah Tailwind, jadi menang urutan) ---------- */
+.border {
+  border-width: 2px;
+}
+.border-t {
+  border-top-width: 2px;
+}
+.border-b {
+  border-bottom-width: 2px;
+}
+:focus-visible {
+  outline: 3px solid var(--info);
+  outline-offset: 2px;
+}
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 3px 3px 0 var(--primary);
+}
+
+/* Blob warna di latar yang bergerak pelan */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(520px 320px at 92% -5%, color-mix(in srgb, var(--primary) 30%, transparent), transparent),
+    radial-gradient(420px 320px at -5% 45%, color-mix(in srgb, var(--coin) 24%, transparent), transparent);
+  animation: drift 12s ease-in-out infinite alternate;
+}
+
+/* Checkbox jadi saklar */
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 52px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 99px;
+  border: 2px solid var(--ink);
+  background: var(--bg-card2);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition: transform 0.25s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+input[type='checkbox']:checked {
+  background: var(--primary);
+}
+input[type='checkbox']:checked::after {
+  transform: translateX(22px);
+}
+
+/* Kartu hero (gradasi utama / pengeluaran) diberi dekorasi */
+[style*='linear-gradient(135deg, var(--primary)'],
+[style*='linear-gradient(135deg, var(--expense)'] {
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+[style*='linear-gradient(135deg, var(--primary)']::after,
+[style*='linear-gradient(135deg, var(--expense)']::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+/* ---------- Layout halaman ---------- */
+.page-wrap {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding: 16px;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: start;
+  gap: 16px;
+}
+.page-narrow {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: 16px;
+}
+.span-all {
+  grid-column: 1 / -1;
+}
+@media (min-width: 900px) {
+  .page-wrap,
+  .page-narrow {
+    padding: 24px 32px;
+  }
+}
+
+/* Ubin ikon kategori / dompet / kantong */
+.em-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: 22px;
+  line-height: 1;
+  background: color-mix(in srgb, var(--primary) 20%, var(--bg-card));
+  border: 2px solid var(--ink);
+  transition: transform 0.2s;
+}
+button:hover > .em-tile,
+div:hover > .em-tile {
+  transform: rotate(-8deg) scale(1.08);
+}
+
+/* Hero Home */
+.hero-card {
+  background: radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.26) 0 64px, transparent 65px),
+    radial-gradient(circle at 104% 108%, rgba(0, 0, 0, 0.16) 0 120px, transparent 121px), var(--primary);
+  color: var(--on-primary);
+}
+.coin-btn {
+  color: var(--coin);
+}
+.coin-btn svg {
+  fill: rgba(255, 201, 60, 0.3);
+  stroke-width: 2.2;
+  animation: bob 2.4s ease-in-out infinite;
+}
+.coin-flip svg {
+  animation: flip 0.8s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+.spark-bar {
+  transform-origin: bottom;
+  animation: rise 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+}
+.ring-fill {
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  stroke-linecap: round;
+}
+
+/* Stiker status */
+.sticker {
+  transform: rotate(-4deg);
+  box-shadow: 2px 2px 0 var(--ink);
+  border: 2px solid var(--ink);
+}
+
+/* FAB */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-sm);
+  z-index: 30;
+}
+.fab::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--coin);
+  animation: pulse 2.2s ease-out infinite;
+  pointer-events: none;
+}
+.fab:active {
+  transform: translate(3px, 3px) rotate(90deg) !important;
+  box-shadow: none;
+}
+@media (min-width: 900px) {
+  .fab {
+    right: 32px;
+    bottom: 32px;
+  }
+}
+
+/* Toast & sheet & confetti */
+.toast-in {
+  animation: tin 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+.sheet-in {
+  animation: sheetup 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+.fade-in {
+  animation: fadein 0.2s;
+}
+.cf {
+  position: fixed;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #12151f;
+  pointer-events: none;
+  z-index: 100;
+  animation: cf 1.1s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+.bar-rise {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: rise 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+}
+.seg-in {
+  animation: segin 1s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+.loadbar {
+  animation: loadbar 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.coin-spin {
+  animation: spinY 3s linear infinite;
+}
+
+/* Progress bar: tumbuh dari kiri saat muncul, dan halus saat berubah */
+div.h-full.rounded-full {
+  transition: width 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  animation: grow 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+}
+
+/* Animasi masuk halaman: anak-anak muncul berurutan */
+.page-in > .page-wrap > *,
+.page-in > .page-narrow > * {
+  animation: in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.page-in > * > *:nth-child(2) { animation-delay: 0.05s; }
+.page-in > * > *:nth-child(3) { animation-delay: 0.1s; }
+.page-in > * > *:nth-child(4) { animation-delay: 0.15s; }
+.page-in > * > *:nth-child(5) { animation-delay: 0.2s; }
+.page-in > * > *:nth-child(6) { animation-delay: 0.25s; }
+.page-in > * > *:nth-child(n + 7) { animation-delay: 0.3s; }
+
+@media (hover: hover) {
+  .page-in .shadow-sm:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-md);
+  }
+}
+.shadow-sm {
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes in { from { opacity: 0; transform: translateY(12px); } }
+@keyframes fadein { from { opacity: 0; } }
+@keyframes sheetup { from { transform: translateY(100%); } }
+@keyframes tin { from { opacity: 0; transform: translateY(16px) scale(0.9); } }
+@keyframes grow { from { width: 0; } }
+@keyframes rise { from { transform: scaleY(0); } }
+@keyframes segin { from { stroke-dasharray: 0 400; } }
+@keyframes bob { 50% { transform: translateY(-6px) rotate(10deg); } }
+@keyframes flip { to { transform: rotateY(720deg) scale(1.2); } }
+@keyframes pulse { to { transform: scale(1.55); opacity: 0; } }
+@keyframes drift { to { transform: scale(1.2) translateY(24px); } }
+@keyframes spinY { 50% { transform: rotateY(180deg); } }
+@keyframes loadbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+@keyframes cf { to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; } }

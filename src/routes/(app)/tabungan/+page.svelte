@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { savingBuckets, savingTxs, transactions } from '$lib/stores/data';
   import { getBucketBalance } from '$lib/data/saving';
@@ -61,8 +62,8 @@
   }
 </script>
 
-<div class="p-4 flex flex-col gap-4 max-w-md mx-auto">
-  <div class="flex gap-2">
+<div class="p-4 flex flex-col gap-4 page-wrap">
+  <div class="flex gap-2 span-all">
     <button
       on:click={() => (tab = 'active')}
       class="flex-1 py-2 rounded-lg text-xs font-medium border"
@@ -90,7 +91,7 @@
   </div>
 
   {#if list.length === 0}
-    <p class="text-xs text-txt-secondary text-center py-16">
+    <p class="text-xs text-txt-secondary text-center py-16 span-all">
       {tab === 'active' ? 'Belum ada kantong tabungan. Tap + untuk membuat.' : 'Belum ada kantong yang selesai.'}
     </p>
   {/if}
@@ -100,7 +101,7 @@
     {@const pct = b.target && (b.target as number) > 0 ? Math.min(Math.round((bal / (b.target as number)) * 100), 100) : null}
     <div class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
       <div class="flex items-center gap-3">
-        <span class="text-2xl">{b.emoji}</span>
+        <span class="em-tile">{b.emoji}</span>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-txt-primary truncate">
             {b.name}
@@ -109,7 +110,7 @@
                 class="text-[10px] font-semibold rounded-full px-2 py-0.5 ml-1"
                 style="color: var(--income); background: var(--income-bg)"
               >
-                ✅ Selesai
+                <Icon name="check" /> Selesai
               </span>
             {/if}
           </p>
@@ -138,7 +139,7 @@
             class="flex-1 text-xs py-2 rounded-lg"
             style="background: var(--primary-bg); color: var(--primary)"
           >
-            ⬆️ Tabung
+            <Icon name="up" /> Tabung
           </button>
         {/if}
         <button
@@ -146,20 +147,20 @@
           class="flex-1 text-xs py-2 rounded-lg"
           style="background: var(--expense-bg); color: var(--expense)"
         >
-          ⬇️ Tarik
+          <Icon name="down" /> Tarik
         </button>
         {#if b.status !== 'completed'}
-          <button on:click={() => openEditBucket(b)} class="text-xs py-2 px-3 rounded-lg border border-border">✏️</button>
+          <button on:click={() => openEditBucket(b)} class="text-xs py-2 px-3 rounded-lg border border-border"><Icon name="edit" /></button>
         {/if}
         <button on:click={() => toggleComplete(b)} class="text-xs py-2 px-3 rounded-lg border border-border">
-          {b.status === 'completed' ? '🔓' : '🏁'}
+          <Icon name={b.status === 'completed' ? 'unlock' : 'flag'} />
         </button>
         <button
           on:click={() => removeBucket(b)}
           class="text-xs py-2 px-3 rounded-lg border border-border"
           style="color: var(--expense)"
         >
-          🗑️
+          <Icon name="trash" />
         </button>
       </div>
     </div>
