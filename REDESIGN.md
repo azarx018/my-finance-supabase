@@ -40,4 +40,4 @@ Belum diverifikasi lewat `npm run build` (tidak ada akses jaringan di sini): jal
 - Riwayat: pencarian di-debounce 160ms, peta dompet/kategori dibuat sekali (bukan dicari per baris), daftar dirender bertahap 40 per langkah.
 - Dashboard: sparkline 7 hari dihitung satu kali lewat, bukan 7 kali.
 - CSS: hapus `backdrop-filter`, hapus animasi latar tanpa henti, hapus selector `:has()` (diganti class `.bar-track`),
-  animasi masuk hanya 8 elemen pertama, confetti 24 keping. Splash 800ms → 550ms.
+  confetti 24 keping (animasi masuk daftar tetap untuk semua baris; aman karena daftar dirender bertahap 40 per langkah). Splash 800ms → 550ms.

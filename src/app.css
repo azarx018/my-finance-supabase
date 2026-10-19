@@ -435,7 +435,7 @@ div.h-full.rounded-full {
 .page-in > * > *:nth-child(4) { animation-delay: 0.15s; }
 .page-in > * > *:nth-child(5) { animation-delay: 0.2s; }
 .page-in > * > *:nth-child(6) { animation-delay: 0.25s; }
-.page-in > * > *:nth-child(n + 7) { animation-delay: 0.3s; }
+.page-in > * > *:nth-child(n + 7) { animation-delay: 0s; }
 
 @media (hover: hover) {
   .page-in .shadow-sm:hover {
@@ -563,8 +563,3 @@ body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
   color: var(--k, var(--primary));
 }
 
-/* Performa: animasi masuk hanya untuk 8 elemen pertama (daftar panjang tidak ikut dianimasikan) */
-.page-in > .page-wrap > *:nth-child(n + 9),
-.page-in > .page-narrow > *:nth-child(n + 9) {
-  animation: none;
-}
