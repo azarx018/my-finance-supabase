@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/actions/reveal';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { debts as debtsStore, debtPayments, transactions } from '$lib/stores/data';
@@ -141,7 +142,7 @@
     {@const isUrgent = !d.paid && days !== null && days <= 3}
     {@const isWarn = !d.paid && days !== null && days > 3 && days <= 7}
     {@const dayLabel = days === null ? '-' : days < 0 ? ` Terlambat ${Math.abs(days)} hari` : days === 0 ? ' Jatuh tempo hari ini' : `${formatDateShort(d.due_date as string)} (${days} hari lagi)`}
-    <div
+    <div use:reveal
       class="bg-base-card rounded-xl shadow-sm p-4 border"
       style="border-color: {d.paid ? 'var(--border)' : isUrgent ? 'var(--expense)' : isWarn ? 'var(--warn)' : 'var(--border)'}"
     >

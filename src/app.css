@@ -563,3 +563,15 @@ body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
   color: var(--k, var(--primary));
 }
 
+
+/* Reveal saat terlihat (daftar): elemen tersembunyi dulu, animasi jalan ketika masuk layar */
+.reveal {
+  opacity: 0;
+}
+.page-in .reveal {
+  animation: none;
+}
+.reveal.reveal-in {
+  opacity: 1;
+  animation: in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}

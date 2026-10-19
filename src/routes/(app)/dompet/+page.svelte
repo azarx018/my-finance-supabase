@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/actions/reveal';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { wallets, transactions } from '$lib/stores/data';
@@ -49,7 +50,7 @@
   {/if}
 
   {#each $wallets as w (w.id)}
-    <button
+    <button use:reveal
       on:click={() => openEdit(w)}
       class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-4 border border-border text-left"
     >

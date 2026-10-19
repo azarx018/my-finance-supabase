@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/actions/reveal';
   import { catColor } from '$lib/data/catColor';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
@@ -118,7 +119,7 @@
     {@const isTransfer = t.type === 'transfer'}
     {#if isTransfer}
       {@const toW = walletMap.get(t.to_wallet_id as string)}
-      <button
+      <button use:reveal
         on:click={() => openEdit(t)}
         class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left"
       >
@@ -146,7 +147,7 @@
         </p>
       </div>
     {:else}
-      <button
+      <button use:reveal
         on:click={() => openEdit(t)}
         class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left"
       >

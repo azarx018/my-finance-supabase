@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/actions/reveal';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { savingBuckets, savingTxs, transactions } from '$lib/stores/data';
@@ -99,7 +100,7 @@
   {#each list as b (b.id)}
     {@const bal = getBucketBalance(b.id, $savingTxs)}
     {@const pct = b.target && (b.target as number) > 0 ? Math.min(Math.round((bal / (b.target as number)) * 100), 100) : null}
-    <div class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
+    <div use:reveal class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
       <div class="flex items-center gap-3">
         <span class="em-tile" style="--k: var(--coin)">{b.emoji}</span>
         <div class="flex-1 min-w-0">

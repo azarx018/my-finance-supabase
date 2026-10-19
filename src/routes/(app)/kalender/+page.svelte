@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/actions/reveal';
   import { catColor } from '$lib/data/catColor';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
@@ -206,7 +207,7 @@
         {#each dayTxs as t (t.id)}
           {@const dt = getDisplayType(t)}
           {@const cat = catOf(t)}
-          <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border">
+          <div use:reveal class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border">
             <span class="em-tile" style="--k: {catColor(cat?.id)}">{cat.emoji}</span>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-txt-primary truncate">{t.description || 'Transaksi'}</p>

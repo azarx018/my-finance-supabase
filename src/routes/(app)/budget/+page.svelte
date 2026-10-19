@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from '$lib/actions/reveal';
   import { catColor } from '$lib/data/catColor';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
@@ -116,7 +117,7 @@
       {@const remain = (b.limit_amount as number) - used}
       {@const bpct = (b.limit_amount as number) > 0 ? Math.round((used / (b.limit_amount as number)) * 100) : 0}
       {@const bColor = bpct >= 90 ? 'var(--expense)' : bpct >= 70 ? 'var(--warn)' : 'var(--income)'}
-      <div class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
+      <div use:reveal class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
         <div class="flex items-center gap-3">
           <span class="em-tile" style="--k: {catColor(cat?.id)}">{cat.emoji}</span>
           <div class="flex-1 min-w-0">
