@@ -21,6 +21,14 @@ import { session } from './session';
  * redundant — a bug in the wipe path shouldn't be able to leak another
  * user's rows into the UI on its own.
  */
+function sameRows(a: SyncableRecord[], b: SyncableRecord[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id || a[i].updated_at !== b[i].updated_at) return false;
+  }
+  return true;
+}
+
 function liveTable(table: SyncTable): Readable<SyncableRecord[]> {
   return readable<SyncableRecord[]>([], (set) => {
     let inner: Subscription | null = null;
@@ -32,10 +40,18 @@ function liveTable(table: SyncTable): Readable<SyncableRecord[]> {
         set([]); // logged out — never show stale/leftover data
         return;
       }
+      let prev: SyncableRecord[] = [];
       inner = liveQuery(() =>
-        db[table].toArray().then((rows) => rows.filter((r) => !r.deleted_at && r.user_id === userId))
+        // filter() langsung di Dexie: tidak membuat salinan array penuh dulu.
+        db[table].filter((r) => !r.deleted_at && r.user_id === userId).toArray()
       ).subscribe({
-        next: (rows) => set(rows),
+        next: (rows) => {
+          // Lewati jika isinya sama persis (id + updated_at): mencegah seluruh
+          // halaman menghitung ulang dan render ulang tanpa ada perubahan nyata.
+          if (sameRows(prev, rows)) return;
+          prev = rows;
+          set(rows);
+        },
         error: (e) => console.error(`[data] liveQuery(${table}) error:`, e)
       });
     });
@@ -57,3 +73,25 @@ export const debts = liveTable('debts');
 export const debtPayments = liveTable('debt_payments');
 export const reminders = liveTable('reminders');
 export const assistantMemory = liveTable('assistant_memory');
+
+/**
+ * Menjaga semua live query tetap hidup selama app dibuka. Tanpa ini, setiap
+ * pindah halaman membuat query Dexie dimatikan lalu dibuat ulang (baca ulang
+ * seluruh tabel). Dengan keepAlive, pindah halaman instan karena data sudah di memori.
+ */
+export function keepAlive(): () => void {
+  const stores = [
+    wallets,
+    transactions,
+    customCategories,
+    budgets,
+    savingBuckets,
+    savingTxs,
+    debts,
+    debtPayments,
+    reminders,
+    assistantMemory
+  ];
+  const unsubs = stores.map((st) => st.subscribe(() => {}));
+  return () => unsubs.forEach((u) => u());
+}

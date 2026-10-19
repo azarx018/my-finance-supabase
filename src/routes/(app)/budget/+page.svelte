@@ -98,7 +98,7 @@
         <span class="text-txt-secondary">Total terpakai {pct}%</span>
         <span style="color: {pctColor}">{formatRpC(totalActualUsed)} / {formatRpC(totalLimit)}</span>
       </div>
-      <div class="h-2 rounded-full bg-base-card2 overflow-hidden">
+      <div class="bar-track rounded-full overflow-hidden">
         <div class="h-full rounded-full" style="width: {Math.min(pct, 100)}%; background: {pctColor}"></div>
       </div>
       <p class="text-xs text-txt-secondary mt-2">{tips}</p>
@@ -132,7 +132,7 @@
             </p>
           </div>
         </div>
-        <div class="h-1.5 rounded-full bg-base-card2 overflow-hidden mt-3">
+        <div class="bar-track rounded-full overflow-hidden mt-3">
           <div class="h-full rounded-full" style="width: {Math.min(bpct, 100)}%; background: {bColor}"></div>
         </div>
         <div class="flex gap-2 mt-3">
@@ -156,7 +156,7 @@
 
   {#if untracked.length > 0}
     <section class="span-all">
-      <p class="text-xs font-medium text-txt-secondary mb-2">Pengeluaran Tanpa Budget</p>
+      <p class="text-sm font-extrabold text-txt-primary mb-2">Pengeluaran Tanpa Budget</p>
       <div class="flex flex-col gap-2">
         {#each untracked as c}
           <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border">

@@ -131,9 +131,10 @@ export function getCategoryBreakdown(
     const c = (t.cat_id as string) || 'other_exp';
     map[c] = (map[c] || 0) + (t.amount as number);
   });
+  const catList = getCatList('expense', customCats); // sekali saja, bukan per kategori
   return Object.entries(map)
     .map(([id, val]) => {
-      const cat = getCatList('expense', customCats).find((c) => c.id === id) || { id, name: 'Lainnya', emoji: '💸' };
+      const cat = catList.find((c) => c.id === id) || { id, name: 'Lainnya', emoji: '💸' };
       return { id, name: cat.name, emoji: cat.emoji, value: val };
     })
     .sort((a, b) => b.value - a.value);

@@ -164,12 +164,20 @@ export async function retryFailedEntry(fid: number): Promise<void> {
  * would silently discard an unsent local edit.
  */
 async function applyRemoteRows(table: SyncTable, rows: SyncableRecord[]): Promise<void> {
-  for (const row of rows) {
-    const local = await db[table].get(row.id);
-    if (!local || new Date(row.updated_at as string) >= new Date(local.updated_at as string)) {
-      await db[table].put(row);
-    }
-  }
+  if (rows.length === 0) return;
+  // Satu transaksi + bulk: sebelumnya tiap baris = 1 get + 1 put terpisah, dan setiap put
+  // memicu live query membaca ulang tabel. Sekarang cukup 1x tulis, 1x refresh UI.
+  await db.transaction('rw', db[table], async () => {
+    const locals = await db[table].bulkGet(rows.map((r) => r.id));
+    const toPut: SyncableRecord[] = [];
+    rows.forEach((row, i) => {
+      const local = locals[i];
+      if (!local || Date.parse(row.updated_at as string) >= Date.parse(local.updated_at as string)) {
+        toPut.push(row);
+      }
+    });
+    if (toPut.length > 0) await db[table].bulkPut(toPut);
+  });
 }
 
 /** PULL one table — everything changed since the last checkpoint. */
@@ -197,9 +205,8 @@ async function pullTable(table: SyncTable, userId: string): Promise<void> {
 
 /** PULL everything — used on login and whenever connectivity returns. */
 export async function pullAll(userId: string): Promise<void> {
-  for (const table of SYNC_TABLES) {
-    await pullTable(table, userId);
-  }
+  // Tabel-tabel independen, jadi diambil paralel (bukan satu-satu menunggu).
+  await Promise.all(SYNC_TABLES.map((table) => pullTable(table, userId)));
   lastSyncedAt.set(new Date().toISOString());
 }
 
@@ -257,6 +264,7 @@ export async function startSync(userId: string): Promise<void> {
   // told to retry otherwise. This just re-attempts on a fixed interval.
   if (safetyNetInterval) clearInterval(safetyNetInterval);
   safetyNetInterval = setInterval(() => {
+    if (typeof document !== 'undefined' && document.hidden) return; // hemat baterai saat tab tidak aktif
     void flushQueue();
     void flushPhotoQueue();
   }, 15000);

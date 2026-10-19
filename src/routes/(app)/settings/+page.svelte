@@ -5,7 +5,7 @@
   import { db } from '$lib/db/dexie';
   import ThemeSwitcher from '$lib/components/ThemeSwitcher.svelte';
   import { signOut } from '$lib/stores/auth';
-  import { getUserId } from '$lib/stores/session';
+  import { getUserId, session } from '$lib/stores/session';
   import { notifEnabled, notifTime } from '$lib/stores/notif';
   import { scheduleNotif } from '$lib/notif/scheduler';
   import { exportJSON, exportCSV, importJSON } from '$lib/db/backup';
@@ -177,13 +177,31 @@
 </script>
 
 <div class="p-4 flex flex-col gap-6 page-narrow">
+<section
+  class="rounded-2xl p-5 flex items-center gap-4 text-white"
+  style="background: linear-gradient(135deg, var(--primary), var(--primary-light))"
+>
+  <div
+    class="w-16 h-16 rounded-full grid place-items-center shrink-0 text-2xl font-extrabold"
+    style="background: var(--coin); border: 2px solid var(--line); color: #12151f; box-shadow: var(--shadow-sm)"
+  >
+    {(($session?.user?.email ?? 'M')[0] ?? 'M').toUpperCase()}
+  </div>
+  <div class="min-w-0 relative z-10">
+    <p class="text-lg font-extrabold truncate">{$session?.user?.email ?? 'My Finance'}</p>
+    <p class="text-sm font-semibold">
+      v{__APP_VERSION__} · {online ? 'Online' : 'Offline'}{pendingPush > 0 ? ` · ${pendingPush} menunggu sync` : ''}
+    </p>
+  </div>
+</section>
+
   <section>
-    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Status Sinkronisasi</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: var(--info)"><Icon name="refresh" size={16} /></span>Status Sinkronisasi</h2>
     <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
       <div class="flex items-center justify-between">
         <span class="text-sm text-txt-primary">Koneksi</span>
         <span
-          class="text-xs px-2 py-0.5 rounded-full font-medium"
+          class="sticker text-xs px-2.5 py-0.5 rounded-full font-bold"
           style={online
             ? 'background: var(--income-bg); color: var(--income)'
             : 'background: var(--expense-bg); color: var(--expense)'}
@@ -214,9 +232,10 @@
       <button
         on:click={forceSyncNow}
         disabled={syncing || !online}
-        class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary mt-1 disabled:opacity-40"
+        class="w-full text-sm font-extrabold py-3 rounded-xl text-white mt-1 disabled:opacity-40"
+      style="background: var(--primary)"
       >
-        {syncing ? 'Menyinkronkan…' : ' Sinkron Sekarang'}
+        <Icon name="refresh" /> {syncing ? 'Menyinkronkan…' : 'Sinkron Sekarang'}
       </button>
       {#if pendingPush > 0}
         <p class="text-[10px] text-txt-muted">
@@ -229,7 +248,7 @@
 
   {#if failedEntries.length > 0}
     <section>
-      <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Data Gagal Sync ({failedEntries.length})</h2>
+      <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: var(--warn)"><Icon name="alert" size={16} /></span>Data Gagal Sync ({failedEntries.length})</h2>
       <div class="bg-base-card rounded-xl shadow-sm border p-4 flex flex-col gap-3" style="border-color: var(--warn)">
         <p class="text-xs text-txt-secondary">
           Baris-baris ini ditolak server dan <b>tidak akan pernah berhasil</b> kalau dicoba ulang apa
@@ -248,13 +267,13 @@
             <div class="flex gap-2 mt-1">
               <button
                 on:click={() => handleRetryFailed(entry.fid)}
-                class="flex-1 text-xs py-1.5 rounded-lg border border-border text-txt-primary"
+                class="flex-1 row-btn justify-center !py-2 !text-xs"
               >
                 <Icon name="refresh" /> Coba lagi
               </button>
               <button
                 on:click={() => handleDiscardFailed(entry.fid)}
-                class="flex-1 text-xs py-1.5 rounded-lg border"
+                class="flex-1 row-btn justify-center !py-2 !text-xs"
                 style="color: var(--expense); border-color: var(--expense)"
               >
                 <Icon name="trash" /> Buang
@@ -264,7 +283,7 @@
         {/each}
         <button
           on:click={handleDiscardAllFailed}
-          class="w-full text-xs py-2 rounded-lg border"
+          class="row-btn justify-center !text-xs"
           style="color: var(--expense); border-color: var(--expense)"
         >
           Buang Semua ({failedEntries.length})
@@ -275,7 +294,7 @@
 
   {#if $assistantMemory.length > 0}
     <section>
-      <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5"><Icon name="sparkle" /> Yang Diinget Asisten AI ({$assistantMemory.length})</h2>
+      <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: #6b4df0"><Icon name="sparkle" size={16} /></span>Yang Diinget Asisten AI ({$assistantMemory.length})</h2>
       <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
         <p class="text-xs text-txt-secondary">
           Fakta-fakta ini diinget asisten lintas sesi & device. Hapus kalau ada yang salah paham.
@@ -298,7 +317,7 @@
   {/if}
 
   <section>
-    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Tampilan</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: var(--primary)"><Icon name="leaf" size={16} /></span>Tampilan</h2>
     <ThemeSwitcher />
   </section>
 
@@ -315,7 +334,7 @@
   {/if}
 
   <section>
-    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Pengingat Harian</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: var(--warn)"><Icon name="bell" size={16} /></span>Pengingat Harian</h2>
     <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-3">
       <label class="flex items-center justify-between">
         <span class="text-sm text-txt-primary">Ingatkan catat pengeluaran</span>
@@ -336,7 +355,7 @@
   </section>
 
   <section>
-    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Data & Backup</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: var(--info)"><Icon name="download" size={16} /></span>Data & Backup</h2>
     <div class="bg-base-card rounded-xl shadow-sm border border-border p-4 flex flex-col gap-2">
       <p class="text-xs text-txt-secondary mb-1">
         Data kamu sudah otomatis tersinkron ke cloud — file di bawah ini untuk backup manual
@@ -344,18 +363,18 @@
       </p>
       <button
         on:click={handleExportJSON}
-        class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary text-left px-3"
+        class="row-btn"
       >
         <Icon name="download" /> Ekspor Backup JSON (semua data)
       </button>
       <button
         on:click={handleExportCSV}
-        class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary text-left px-3"
+        class="row-btn"
       >
         <Icon name="chart" /> Ekspor CSV (transaksi saja)
       </button>
       <label
-        class="w-full text-sm py-2.5 rounded-lg border border-border text-txt-primary text-left px-3 cursor-pointer"
+        class="row-btn cursor-pointer"
         style={importing ? 'opacity: 0.6; pointer-events: none' : ''}
       >
         <Icon name="download" /> {importing ? 'Mengimpor…' : 'Impor Backup JSON'}
@@ -369,8 +388,8 @@
   </section>
 
   <section>
-    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Zona Berbahaya</h2>
-    <div class="bg-base-card rounded-xl shadow-sm border p-4 flex flex-col gap-3" style="border-color: var(--expense)">
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: var(--expense)"><Icon name="alert" size={16} /></span>Zona Berbahaya</h2>
+    <div class="bg-base-card rounded-xl shadow-sm border p-4 flex flex-col gap-3" style="border-color: var(--expense); background: color-mix(in srgb, var(--expense) 8%, var(--bg-card))">
       {#if dangerMode === 'none'}
         <div>
           <p class="text-sm font-medium" style="color: var(--expense)">Kosongkan Data</p>
@@ -386,7 +405,7 @@
             dangerMode = 'soft';
             confirmText = '';
           }}
-          class="w-full text-sm font-medium py-2.5 rounded-lg border"
+          class="row-btn justify-center"
           style="color: var(--expense); border-color: var(--expense)"
         >
           Kosongkan Data
@@ -432,7 +451,7 @@
               dangerMode = 'none';
               confirmText = '';
             }}
-            class="flex-1 text-sm py-2.5 rounded-lg border border-border text-txt-secondary"
+            class="flex-1 row-btn justify-center"
           >
             Batal
           </button>
@@ -466,7 +485,7 @@
               dangerMode = 'none';
               confirmText = '';
             }}
-            class="flex-1 text-sm py-2.5 rounded-lg border border-border text-txt-secondary"
+            class="flex-1 row-btn justify-center"
           >
             Batal
           </button>
@@ -484,14 +503,12 @@
   </section>
 
   <section>
-    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-1.5">Akun</h2>
+    <h2 class="text-sm font-extrabold text-txt-primary mb-3 flex items-center gap-2.5"><span class="mini-tile" style="--k: #6b4df0"><Icon name="out" size={16} /></span>Akun</h2>
     <button
       on:click={signOut}
-      class="w-full text-sm font-medium border border-border rounded-lg py-3"
+      class="row-btn justify-center"
       style="color: var(--expense)"
-    >
-      Keluar
-    </button>
+    ><Icon name="out" /> Keluar</button>
   </section>
 
   <p class="text-xs text-txt-muted text-center">My Finance · v{__APP_VERSION__}</p>

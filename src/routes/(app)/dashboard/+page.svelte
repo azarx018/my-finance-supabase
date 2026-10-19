@@ -72,11 +72,16 @@
     }
     return out;
   }
-  $: spark = lastDays(7).map((ds) =>
-    $transactions
-      .filter((t) => t.type === 'expense' && t.date === ds)
-      .reduce((sum, t) => sum + (t.amount as number), 0)
-  );
+  $: spark = (() => {
+    const days = lastDays(7);
+    const sums = new Map<string, number>(days.map((d) => [d, 0]));
+    for (const t of $transactions) {
+      if (t.type === 'expense' && sums.has(t.date as string)) {
+        sums.set(t.date as string, (sums.get(t.date as string) ?? 0) + (t.amount as number));
+      }
+    }
+    return days.map((d) => sums.get(d) ?? 0);
+  })();
   $: maxSpark = Math.max(...spark, 1);
 
   // Ring savings rate: keliling lingkaran r=32 → 201.

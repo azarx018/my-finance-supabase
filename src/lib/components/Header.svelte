@@ -25,8 +25,8 @@
 </script>
 
 <header
-  class="h-16 flex items-center justify-between px-5 min-[900px]:px-8 sticky top-0 z-20 backdrop-blur"
-  style="background: color-mix(in srgb, var(--bg-base) 85%, transparent)"
+  class="h-16 flex items-center justify-between px-5 min-[900px]:px-8 sticky top-0 z-20"
+  style="background: color-mix(in srgb, var(--bg-base) 95%, transparent)"
 >
   <div class="flex items-center gap-2 min-w-0">
     {#if isSubPage}
@@ -46,10 +46,10 @@
     </h1>
   </div>
 
-  <div class="flex items-center gap-2 shrink-0">
+  <div class="flex items-center gap-1.5 shrink-0">
     <div
-      class="w-10 h-10 grid place-items-center"
-      style="color: {online ? 'var(--txt-muted)' : 'var(--warn)'}"
+      class="w-10 h-10 grid place-items-center rounded-xl"
+      style="color: {online ? 'var(--primary)' : 'var(--warn)'}; border: 2px solid var(--line); background: var(--bg-card)"
       title={online ? 'Online — tersinkron otomatis' : 'Offline — perubahan tersimpan lokal'}
       aria-label={online ? 'Status: online' : 'Status: offline'}
     >
@@ -77,7 +77,7 @@
       on:click={() => goto('/asisten')}
       disabled={pageId === 'asisten'}
       aria-label="Asisten AI"
-      class="min-[900px]:hidden w-11 h-11 grid place-items-center rounded-xl disabled:opacity-40 disabled:pointer-events-none"
+      class="min-[900px]:hidden {pageId === 'asisten' ? 'hidden' : ''} w-10 h-10 grid place-items-center rounded-xl disabled:opacity-40 disabled:pointer-events-none"
       style="border: 2px solid var(--line); background: var(--bg-card)"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
@@ -87,7 +87,7 @@
     <button
       on:click={() => goto('/lainnya')}
       aria-label="Menu lainnya"
-      class="min-[900px]:hidden w-11 h-11 grid place-items-center rounded-xl"
+      class="min-[900px]:hidden w-10 h-10 grid place-items-center rounded-xl"
       style="border: 2px solid var(--line); background: var(--bg-card)"
     >
       <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
@@ -97,7 +97,7 @@
     <button
       on:click={() => darkMode.update((v) => !v)}
       aria-label="Ganti mode gelap/terang"
-      class="w-11 h-11 grid place-items-center rounded-xl"
+      class="w-10 h-10 grid place-items-center rounded-xl"
       style="border: 2px solid var(--line); background: var(--bg-card)"
     >
       {#if $darkMode}

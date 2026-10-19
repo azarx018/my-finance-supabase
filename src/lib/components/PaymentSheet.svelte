@@ -137,7 +137,7 @@
       <div class="flex justify-between text-xs text-txt-secondary mb-1">
         <span>Terbayar {formatRp(paidSoFar)}</span><span>Total {formatRp(total)}</span>
       </div>
-      <div class="h-1.5 rounded-full bg-base-card overflow-hidden">
+      <div class="bar-track rounded-full overflow-hidden">
         <div class="h-full rounded-full" style="width: {pct}%; background: var(--primary)"></div>
       </div>
       <p class="text-xs text-txt-secondary mt-1">Sisa: {formatRp(remaining)}</p>

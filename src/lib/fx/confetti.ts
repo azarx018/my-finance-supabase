@@ -1,7 +1,7 @@
 const COLORS = ['#ffc93c', '#12a15f', '#6b4df0', '#ff5c8a', '#2f5bea'];
 
 /** Hujan confetti kecil dari titik (x, y). Aman dipanggil di SSR (tidak melakukan apa-apa). */
-export function confetti(x?: number, y?: number, count = 30): void {
+export function confetti(x?: number, y?: number, count = 24): void {
   if (typeof document === 'undefined') return;
   const cx = x ?? window.innerWidth / 2;
   const cy = y ?? window.innerHeight * 0.65;

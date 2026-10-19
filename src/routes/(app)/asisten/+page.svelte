@@ -62,6 +62,25 @@
   let sending = false;
   let historyLoaded = false;
   let scrollContainer: HTMLDivElement;
+  // Chatbox selalu nempel di atas keyboard (seperti WhatsApp): tinggi layar chat
+  // mengikuti visual viewport, jadi saat keyboard muncul area chat mengecil.
+  onMount(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => {
+      document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
+      window.scrollTo(0, 0);
+    };
+    sync();
+    vv.addEventListener('resize', sync);
+    vv.addEventListener('scroll', sync);
+    return () => {
+      vv.removeEventListener('resize', sync);
+      vv.removeEventListener('scroll', sync);
+      document.documentElement.style.removeProperty('--vvh');
+    };
+  });
+
   let textareaEl: HTMLTextAreaElement;
   // Tracks the amount the person last confirmed as "available" (from
   // salary or stated manually) so BudgetProposalCard's "sisa belum
@@ -586,8 +605,8 @@
   }
 </script>
 
-<div class="flex flex-col h-[calc(100vh-4rem-9rem)] min-[900px]:h-[calc(100vh-4rem-3rem)] page-narrow">
-  <div bind:this={scrollContainer} class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+<div class="chat-root page-narrow">
+  <div bind:this={scrollContainer} class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 flex flex-col gap-3">
     {#if !assistantConfigured}
       <div class="flex-1 flex flex-col items-center justify-center text-center gap-2 py-10">
         <p class="text-sm font-semibold text-txt-primary">Asisten AI belum dikonfigurasi</p>
@@ -737,7 +756,10 @@
     </p>
   {/if}
 
-  <div class="p-3 border-t border-border bg-base-nav flex items-end gap-2">
+  <div
+    class="shrink-0 px-3 pt-2 flex items-end gap-2"
+    style="padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--bg-base) 96%, transparent)"
+  >
     <textarea
       bind:this={textareaEl}
       bind:value={draft}
@@ -746,13 +768,13 @@
       rows="1"
       placeholder="Tanya sesuatu…"
       disabled={!assistantConfigured || sending}
-      class="flex-1 resize-none rounded-lg bg-base-input border border-border px-3.5 py-2.5 text-sm text-txt-primary max-h-24 overflow-y-auto disabled:opacity-60"
+      class="flex-1 resize-none rounded-2xl bg-base-input border border-border shadow-sm px-4 py-3 text-base text-txt-primary max-h-28 overflow-y-auto disabled:opacity-60"
     ></textarea>
     <button
       on:click={() => send()}
       disabled={!draft.trim() || !assistantConfigured || sending || !online}
       aria-label="Kirim"
-      class="w-10 h-10 shrink-0 rounded-lg flex items-center justify-center text-white disabled:opacity-40"
+      class="w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center text-white disabled:opacity-40"
       style="background: var(--primary)"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">

@@ -2,6 +2,7 @@
   import { catColor } from '$lib/data/catColor';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
+  import { inview } from '$lib/actions/inview';
   import { transactions, wallets, customCategories } from '$lib/stores/data';
   import { filterTx, getDisplayType, type DateFilter } from '$lib/data/analytics';
   import { getCatList, type Cat } from '$lib/data/categories';
@@ -37,15 +38,42 @@
   onMount(() => fabHandler.set(openAdd));
   onDestroy(() => fabHandler.set(null));
 
-  $: list = filterTx($transactions, dateF, typeF, search);
-
-  function walletOf(id: string) {
-    return $wallets.find((w) => w.id === id);
+  // Pencarian ditunda sebentar (debounce) supaya tidak memfilter ribuan transaksi tiap ketukan.
+  let q = '';
+  let timer: ReturnType<typeof setTimeout>;
+  $: {
+    clearTimeout(timer);
+    const v = search;
+    timer = setTimeout(() => (q = v), 160);
   }
-  function catOf(t: SyncableRecord) {
-    const dt = getDisplayType(t);
-    const custom = $customCategories.filter((c) => c.type === dt) as unknown as Cat[];
-    return getCatList(dt, custom).find((c) => c.id === t.cat_id);
+  onDestroy(() => clearTimeout(timer));
+
+  $: list = filterTx($transactions, dateF, typeF, q);
+
+  // Daftar panjang dirender bertahap (40 per langkah) agar halaman tetap ringan.
+  const PAGE = 40;
+  let limit = PAGE;
+  $: {
+    dateF;
+    typeF;
+    q;
+    limit = PAGE; // balik ke awal hanya saat filter berubah
+  }
+  $: shown = list.slice(0, limit);
+
+  // Peta id → dompet / kategori dibuat sekali, bukan dicari ulang di setiap baris.
+  $: walletMap = new Map($wallets.map((w) => [w.id, w]));
+  function indexCats(arr: Cat[]) {
+    const m = new Map<string, Cat>();
+    for (const c of arr) if (!m.has(c.id)) m.set(c.id, c);
+    return m;
+  }
+  $: catIndex = {
+    income: indexCats(getCatList('income', $customCategories.filter((c) => c.type === 'income') as unknown as Cat[])),
+    expense: indexCats(getCatList('expense', $customCategories.filter((c) => c.type === 'expense') as unknown as Cat[]))
+  };
+  function catOf(t: SyncableRecord, idx: typeof catIndex) {
+    return idx[getDisplayType(t)].get(t.cat_id as string);
   }
 </script>
 
@@ -82,14 +110,14 @@
     <p class="text-xs text-txt-secondary text-center py-16 span-all">Belum ada transaksi yang cocok.</p>
   {/if}
 
-  {#each list as t (t.id)}
-    {@const cat = catOf(t)}
-    {@const w = walletOf(t.wallet_id as string)}
+  {#each shown as t (t.id)}
+    {@const cat = catOf(t, catIndex)}
+    {@const w = walletMap.get(t.wallet_id as string)}
     {@const dt = getDisplayType(t)}
     {@const isLinked = t.type === 'saving_transfer' || t.type === 'debt_transfer'}
     {@const isTransfer = t.type === 'transfer'}
     {#if isTransfer}
-      {@const toW = walletOf(t.to_wallet_id as string)}
+      {@const toW = walletMap.get(t.to_wallet_id as string)}
       <button
         on:click={() => openEdit(t)}
         class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border text-left"
@@ -135,6 +163,12 @@
       </button>
     {/if}
   {/each}
+
+  {#if shown.length < list.length}
+    {#key shown.length}
+      <div use:inview={() => (limit += PAGE)} class="h-10 span-all" aria-hidden="true"></div>
+    {/key}
+  {/if}
 </div>
 
 <TxSheet open={sheetOpen} {editing} onClose={() => (sheetOpen = false)} />

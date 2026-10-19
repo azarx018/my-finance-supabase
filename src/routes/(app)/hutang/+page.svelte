@@ -199,7 +199,7 @@
             <span>Terbayar {formatRpC((d.paid_amount as number) || 0)} dari {formatRpC(d.amount as number)}</span>
             <span style="color: {pct >= 100 ? 'var(--income)' : pct >= 50 ? 'var(--warn)' : 'var(--expense)'}">{pct}%</span>
           </div>
-          <div class="h-1.5 rounded-full bg-base-card2 overflow-hidden">
+          <div class="bar-track rounded-full overflow-hidden">
             <div class="h-full rounded-full" style="width: {pct}%; background: var(--primary)"></div>
           </div>
         </div>

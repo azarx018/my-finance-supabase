@@ -156,7 +156,7 @@
       <p class="text-xs text-txt-secondary">Tingkat Tabungan (Savings Rate)</p>
       <p class="text-lg font-semibold" style="color: {rColor(savRate)}">{savRate}%</p>
       <p class="text-xs text-txt-secondary">{rDesc(savRate)}</p>
-      <div class="h-1.5 rounded-full bg-base-card2 overflow-hidden mt-2">
+      <div class="bar-track rounded-full overflow-hidden mt-2">
         <div
           class="h-full rounded-full"
           style="width: {Math.max(0, Math.min(100, savRate))}%; background: {rColor(savRate)}"
@@ -166,38 +166,41 @@
   </section>
 
   <section class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
-    <p class="text-xs font-medium text-txt-secondary mb-3">Tren Bulanan ({months} bulan terakhir)</p>
+    <p class="text-sm font-extrabold text-txt-primary mb-3">Tren Bulanan ({months} bulan terakhir)</p>
     <BarChart data={monthlyData} />
   </section>
 
   <section class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
-    <p class="text-xs font-medium text-txt-secondary mb-3">Kategori Pengeluaran</p>
+    <p class="text-sm font-extrabold text-txt-primary mb-3">Kategori Pengeluaran</p>
     <DonutChart data={catBreakdown.slice(0, 8)} />
   </section>
 
   <section class="bg-base-card rounded-xl shadow-sm p-4 border border-border">
-    <p class="text-xs font-medium text-txt-secondary mb-3">Pengeluaran per Hari</p>
-    <div class="flex justify-between items-end gap-1 h-24">
+    <p class="text-sm font-extrabold text-txt-primary mb-3">Pengeluaran per Hari</p>
+    <div class="flex justify-between items-end gap-2 h-28">
       {#each dayNames as d, i (d)}
         {@const pct = Math.max(4, (dayData[i] / maxDay) * 100)}
         {@const isMax = dayData[i] === Math.max(...dayData) && dayData[i] > 0}
         <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-          <div class="w-full rounded-t-sm" style="height: {pct}%; background: {isMax ? 'var(--primary)' : 'var(--primary-bg)'}"></div>
-          <span class="text-[9px] text-txt-secondary">{d}</span>
+          <div
+            class="spark-bar w-full rounded-t-lg"
+            style="height: {pct}%; animation-delay: {i * 60}ms; background: {isMax ? 'var(--coin)' : 'color-mix(in srgb, var(--primary) 35%, var(--bg-card))'}; border: 2px solid var(--line); border-bottom: 0"
+          ></div>
+          <span class="text-[11px] font-bold text-txt-secondary">{d}</span>
         </div>
       {/each}
     </div>
   </section>
 
   <section>
-    <p class="text-xs font-medium text-txt-secondary mb-2">Top 5 Pengeluaran</p>
+    <p class="text-sm font-extrabold text-txt-primary mb-2">Top 5 Pengeluaran</p>
     {#if topExpenses.length === 0}
       <p class="text-xs text-txt-muted text-center py-6 span-all">Belum ada pengeluaran</p>
     {/if}
     <div class="flex flex-col gap-2">
       {#each topExpenses as t, i (t.id)}
         <div class="flex items-center gap-3 bg-base-card rounded-xl shadow-sm p-3 border border-border">
-          <span class="text-xs font-semibold text-txt-muted w-5">#{i + 1}</span>
+          <span class="w-7 h-7 rounded-full grid place-items-center text-xs font-extrabold shrink-0" style="background: var(--coin); border: 2px solid var(--line); color: #12151f">{i + 1}</span>
           <div class="flex-1 min-w-0">
             <p class="text-sm text-txt-primary truncate">{t.description}</p>
             <p class="text-xs text-txt-secondary">{formatDateShort(t.date as string)}</p>

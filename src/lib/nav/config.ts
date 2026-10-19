@@ -87,15 +87,15 @@ export const ASSISTANT_PAGE_ID = 'asisten';
 // Ported from nav.js's `titles` map.
 export const PAGE_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
-  analitik: 'Analitik & Laporan',
+  analitik: 'Analitik',
   riwayat: 'Transaksi',
   dompet: 'Dompet',
   lainnya: 'Lainnya',
   tabungan: 'Tabungan',
   hutang: 'Hutang',
   settings: 'Pengaturan',
-  budget: 'Budget Manager',
-  kalender: 'Kalender Keuangan',
+  budget: 'Budget',
+  kalender: 'Kalender',
   dev: 'Dev — Sync Test',
   asisten: 'Asisten AI'
 };

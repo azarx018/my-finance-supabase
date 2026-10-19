@@ -126,7 +126,7 @@
           <div class="flex justify-between text-[10px] text-txt-secondary mb-1">
             <span>{formatRpC(bal)} tersimpan</span><span>Target {formatRpC(b.target as number)}</span>
           </div>
-          <div class="h-1.5 rounded-full bg-base-card2 overflow-hidden">
+          <div class="bar-track rounded-full overflow-hidden">
             <div class="h-full rounded-full" style="width: {pct}%; background: var(--primary)"></div>
           </div>
         </div>

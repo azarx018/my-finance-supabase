@@ -24,3 +24,20 @@ Belum diverifikasi lewat `npm run build` (tidak ada akses jaringan di sini): jal
 - Semua halaman diseragamkan: judul seksi & judul sheet lebih tegas, tombol aksi utama (primary/expense/info) di semua sheet
   memakai gaya sticker yang sama, keadaan kosong jadi kotak putus-putus, Modal & bubble asisten ikut tema,
   ubin ikon kategori berwarna per kategori (`lib/data/catColor.ts`), halaman Lainnya memakai ubin ikon.
+
+## Revisi ronde 3
+- Asisten AI: layar chat penuh tanpa navbar bawah; chatbox selalu di atas keyboard (tinggi mengikuti visual viewport,
+  plus `interactive-widget=resizes-content`), input & tombol kirim ikut tema.
+- Chart bulanan, donut, dan batang harian ikut tema (warna dari token, garis & bayangan senada, angka total di tengah donut).
+- Ikon online/offline di header disamakan dengan tombol lain; judul halaman dipersingkat supaya tidak terpotong di HP.
+- Pengaturan: kartu profil di atas, judul seksi dengan ubin ikon, tombol baris bergaya sticker, zona berbahaya diberi tint merah.
+
+## Audit performa
+- `stores/data.ts`: live query memakai `filter()` langsung (tanpa salinan array penuh), emisi duplikat dilewati
+  (id + updated_at sama), dan `keepAlive()` di layout menjaga query tetap hidup antar halaman (tidak baca ulang tabel tiap pindah halaman).
+- `sync/engine.ts`: `applyRemoteRows` kini 1 transaksi + `bulkGet/bulkPut` (dulu 1 get + 1 put per baris, tiap put memicu
+  refresh UI); `pullAll` paralel antar tabel; interval safety-net berhenti saat tab tersembunyi.
+- Riwayat: pencarian di-debounce 160ms, peta dompet/kategori dibuat sekali (bukan dicari per baris), daftar dirender bertahap 40 per langkah.
+- Dashboard: sparkline 7 hari dihitung satu kali lewat, bukan 7 kali.
+- CSS: hapus `backdrop-filter`, hapus animasi latar tanpa henti, hapus selector `:has()` (diganti class `.bar-track`),
+  animasi masuk hanya 8 elemen pertama, confetti 24 keping. Splash 800ms → 550ms.
