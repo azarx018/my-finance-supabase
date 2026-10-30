@@ -21,10 +21,13 @@ export const DEFAULT_GEMINI_MODELS = [
  *
  * 429  → fallback langsung
  * 503  → tunggu maksimal MODEL_TIMEOUT_MS, lalu fallback
+ * 404  → fallback (model sudah di-retire / nama model salah — itu
+ *        masalah satu model, bukan masalah request-nya, jadi model
+ *        berikutnya di rotasi tetap layak dicoba)
  * timeout → fallback
  * network error → fallback
  *
- * Error konfigurasi (400/401/403/404) → langsung throw.
+ * Error request lain (400/401/403) → langsung throw.
  *
  * TOTAL_TIMEOUT_MS mencegah seluruh rotasi terlalu lama
  * sampai Cloudflare berpotensi mengembalikan 524.
@@ -62,9 +65,11 @@ export async function callGeminiWithFallback(
     // kalau waktu tersisa lebih pendek.
     const timeoutMs = Math.min(MODEL_TIMEOUT_MS, remaining);
 
+    // API key dikirim lewat header, BUKAN query string (?key=...),
+    // supaya tidak ikut tercatat di URL (log, error message, dsb).
     const url =
       `https://generativelanguage.googleapis.com/v1beta/models/${model}` +
-      `:generateContent?key=${apiKey}`;
+      `:generateContent`;
 
     const body = model.includes('thinking')
       ? {
@@ -90,7 +95,8 @@ export async function callGeminiWithFallback(
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
         },
         body: JSON.stringify(body),
         signal: controller.signal
@@ -112,12 +118,15 @@ export async function callGeminiWithFallback(
        *
        * 429 = rate limit / quota
        * 503 = temporarily unavailable / high demand
+       * 404 = model tidak ditemukan / sudah tidak tersedia
        */
-      if (res.status === 429 || res.status === 503) {
+      if (res.status === 429 || res.status === 503 || res.status === 404) {
         const reason =
           res.status === 429
             ? 'rate limit / quota (429)'
-            : 'temporarily unavailable / high demand (503)';
+            : res.status === 503
+              ? 'temporarily unavailable / high demand (503)'
+              : 'model tidak ditemukan / sudah tidak tersedia (404)';
 
         console.warn(
           `[gemini] ${model} → ${reason}, fallback ke model berikutnya`
