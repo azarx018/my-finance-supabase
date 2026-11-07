@@ -64,10 +64,11 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center font-main p-6">
+<div class="min-h-screen flex flex-col items-center justify-center font-main p-6">
+  <div class="w-full max-w-sm flex flex-col items-center">
   <form
     on:submit|preventDefault={submit}
-    class="w-full max-w-sm bg-base-card rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-border toast-in"
+    class="w-full bg-base-card rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-border toast-in"
   >
     <div>
       <div class="w-14 h-14 rounded-full grid place-items-center coin-spin mb-3" style="background: var(--coin); border: 2px solid var(--line); box-shadow: var(--shadow-sm); color: #12151f">
@@ -169,4 +170,5 @@
     <a href="/terms" target="_blank" rel="noopener" class="underline">Syarat Penggunaan</a> dan
     <a href="/privacy" target="_blank" rel="noopener" class="underline">Kebijakan Privasi</a>.
   </p>
+  </div>
 </div>

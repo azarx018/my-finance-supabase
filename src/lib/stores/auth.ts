@@ -3,16 +3,40 @@ import { session, authReady, passwordRecovery } from './session';
 import { startSync, stopSync } from '$lib/sync/engine';
 import { wipeLocalDatabase } from '$lib/db/dexie';
 import { get } from 'svelte/store';
-import type { Provider } from '@supabase/supabase-js';
+import type { Provider, Session } from '@supabase/supabase-js';
 
 export { session, authReady, passwordRecovery, getUserId } from './session';
+
+
+function isOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+/** Sesi Supabase terakhir yang tersimpan di localStorage (kunci `sb-<project>-auth-token`), atau null. */
+function readStoredSession(): Session | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !/^sb-.+-auth-token$/.test(key)) continue;
+      const parsed = JSON.parse(localStorage.getItem(key) ?? 'null');
+      if (parsed?.user?.id && parsed?.access_token) return parsed as Session;
+    }
+  } catch {
+    /* localStorage tidak tersedia / isi rusak → anggap tidak ada sesi */
+  }
+  return null;
+}
 
 /** Call once, on app startup (see root +layout.svelte). */
 export function initAuth(): void {
   supabase.auth.getSession().then(({ data }) => {
-    session.set(data.session);
+    // BUGFIX (offline): kalau access token sudah kedaluwarsa dan HP sedang offline, supabase-js gagal me-refresh
+    // dan mengembalikan session null → route guard melempar ke /login padahal data lokal ada. Saat offline,
+    // pakai sesi yang tersimpan supaya app tetap terbuka; begitu online, supabase-js me-refresh token sendiri.
+    const effective = data.session ?? (isOffline() ? readStoredSession() : null);
+    session.set(effective);
     authReady.set(true);
-    if (data.session) void startSync(data.session.user.id);
+    if (effective) void startSync(effective.user.id);
   });
 
   supabase.auth.onAuthStateChange((event, newSession) => {

@@ -54,7 +54,9 @@ export default defineConfig({
         //     skip the app-shell fallback and go to the network.
         // Result: landing = online only (link / browser). The installed app
         // starts at /dashboard (manifest start_url) and works fully offline.
-        globIgnores: ['**/landing.html', '**/landing/**', '**/privacy.html', '**/terms.html'],
+        globIgnores: ['**/landing.html', '**/landing/**', '**/privacy.html', '**/terms.html', '**/fonts/DMMono-*'],
+        // NOTE: index.html (app shell) is NOT in the glob output — adapter-static writes it after this plugin runs.
+        // scripts/patch-sw.mjs (postbuild) adds it to the precache; verify-build.mjs fails the build if it is missing.
         directoryIndex: null,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/$/, /^\/landing\.html$/, /^\/privacy\/?$/, /^\/terms\/?$/, /^\/privacy\.html$/, /^\/terms\.html$/],

@@ -100,6 +100,76 @@ function salaryTransaction(v: unknown) {
   };
 }
 
+
+// BUGFIX (asisten menjawab saldo 0): dulu sanitizer ini hanya meneruskan {id, name} untuk dompet dan
+// MEMBUANG field `snapshot` dan `screen` sama sekali. Akibatnya worker tidak pernah menerima saldo
+// dompet ("snapshot tidak tersedia") dan model menjawab 0. Tiga fungsi di bawah meneruskannya dengan aman.
+function walletOptions(v: unknown): Array<{ id: string; name: string; balance?: number }> {
+  if (!Array.isArray(v)) return [];
+  const out: Array<{ id: string; name: string; balance?: number }> = [];
+  for (const item of v) {
+    if (isRecord(item) && typeof item.id === 'string' && typeof item.name === 'string') {
+      out.push(isFiniteNumber(item.balance) ? { id: item.id, name: item.name, balance: item.balance } : { id: item.id, name: item.name });
+    }
+  }
+  return out;
+}
+
+const num = (v: unknown): number => (isFiniteNumber(v) ? v : 0);
+const PERIOD_STATUS = ['empty', 'surplus', 'covered', 'deficit'] as const;
+
+function periodBrief(v: unknown) {
+  const r = isRecord(v) ? v : {};
+  const status = (PERIOD_STATUS as readonly unknown[]).includes(r.status) ? (r.status as (typeof PERIOD_STATUS)[number]) : 'empty';
+  return {
+    income: num(r.income),
+    expense: num(r.expense),
+    cash_net: num(r.cash_net),
+    carry_from_last_month: num(r.carry_from_last_month),
+    status,
+    savings_rate: num(r.savings_rate),
+    deposited_to_savings: num(r.deposited_to_savings),
+    withdrawn_from_savings: num(r.withdrawn_from_savings)
+  };
+}
+
+function objectList<T>(v: unknown, pick: (r: Rec) => T | null): T[] {
+  if (!Array.isArray(v)) return [];
+  const out: T[] = [];
+  for (const item of v) {
+    if (!isRecord(item)) continue;
+    const picked = pick(item);
+    if (picked) out.push(picked);
+  }
+  return out;
+}
+
+function financeSnapshot(v: unknown) {
+  if (!isRecord(v)) return undefined;
+  return {
+    wallets: objectList(v.wallets, (r) =>
+      typeof r.id === 'string' && typeof r.name === 'string' ? { id: r.id, name: r.name, balance: num(r.balance) } : null
+    ),
+    wallets_total: num(v.wallets_total),
+    savings_buckets: objectList(v.savings_buckets, (r) =>
+      typeof r.name === 'string'
+        ? { name: r.name, balance: num(r.balance), target: num(r.target), status: typeof r.status === 'string' ? r.status : 'active' }
+        : null
+    ),
+    savings_total: num(v.savings_total),
+    receivable: num(v.receivable),
+    payable: num(v.payable),
+    net_worth: num(v.net_worth),
+    this_month: periodBrief(v.this_month),
+    last_month: periodBrief(v.last_month),
+    budgets_this_month: objectList(v.budgets_this_month, (r) =>
+      typeof r.cat_id === 'string'
+        ? { cat_id: r.cat_id, limit: num(r.limit), carried: num(r.carried), used: num(r.used), remaining: num(r.remaining) }
+        : null
+    )
+  };
+}
+
 export type SanitizeResult =
   | { ok: true; body: Rec }
   | { ok: false; error: string };
@@ -127,14 +197,16 @@ export function sanitizeAssistantBody(raw: unknown): SanitizeResult {
       current_month: raw.current_month,
       expense_categories: idNameOptions(raw.expense_categories),
       income_categories: idNameOptions(raw.income_categories),
-      wallets: idNameOptions(raw.wallets),
+      wallets: walletOptions(raw.wallets),
       debts: debtOptions(raw.debts),
       memory: stringList(raw.memory),
       salary_transaction: salaryTransaction(raw.salary_transaction),
       avg_spending_last_3mo: numberRecord(raw.avg_spending_last_3mo),
       existing_budget_this_month: numberRecord(raw.existing_budget_this_month),
       spending_this_month: spendingSummary(raw.spending_this_month),
-      spending_last_month: spendingSummary(raw.spending_last_month)
+      spending_last_month: spendingSummary(raw.spending_last_month),
+      screen: typeof raw.screen === 'string' ? raw.screen.slice(0, 32) : undefined,
+      snapshot: financeSnapshot(raw.snapshot)
     }
   };
 }

@@ -54,8 +54,9 @@ export default {
         xl: 'var(--radius-xl)'
       },
       fontFamily: {
-        main: ['Bricolage Grotesque', 'Sora', 'sans-serif'],
-        mono: ['DM Mono', 'monospace']
+        // Satu font untuk semua: `font-main` dan `font-sans` sama persis dengan body (lihat --font-sans di app.css).
+        main: ['var(--font-sans)'],
+        sans: ['var(--font-sans)']
       },
       boxShadow: {
         sm: 'var(--shadow-sm)',

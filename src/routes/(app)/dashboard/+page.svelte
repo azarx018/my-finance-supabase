@@ -1,5 +1,4 @@
 <script lang="ts">
-  import AssistantDock from '$lib/components/AssistantDock.svelte';
   import { catColor } from '$lib/data/catColor';
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
@@ -160,8 +159,6 @@
       {/each}
     </div>
   </section>
-
-  <AssistantDock screen="dashboard" />
 
   <section class="grid grid-cols-2 gap-3">
     <div class="rounded-xl p-4 shadow-sm" style="background: var(--income-bg); border: 2px solid var(--line)">
