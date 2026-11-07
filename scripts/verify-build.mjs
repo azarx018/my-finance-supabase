@@ -26,9 +26,14 @@ if (!existsSync('build/sw.js')) {
   errors.push('build/sw.js tidak ada.');
 } else {
   const sw = readFileSync('build/sw.js', 'utf-8');
-  if (/privacy|terms/i.test(sw)) errors.push('sw.js menyebut privacy/terms → halaman publik ikut ke-precache. Cek globIgnores di vite.config.ts.');
-  if (/landing/i.test(sw)) errors.push('sw.js menyebut "landing" → landing ikut ke-precache/cache PWA. Cek globIgnores di vite.config.ts.');
-  if (!sw.includes('index.html')) errors.push('sw.js tidak mem-precache index.html → app tidak bisa jalan offline.');
+  // Only inspect what is actually PRECACHED (the {url, revision} manifest).
+  // Searching the whole sw.js is wrong: navigateFallbackDenylist is serialized
+  // into it as regexes (/^\/landing\.html$/, /^\/privacy\/?$/ ...), which
+  // legitimately contain these words.
+  const precached = [...sw.matchAll(/["']?url["']?\s*:\s*["']([^"']+)["']/g)].map((m) => m[1]);
+  const leaked = precached.filter((u) => /(^|\/)(landing|privacy|terms)(\.html|\/|$)/i.test(u));
+  if (leaked.length) errors.push(`sw.js mem-precache halaman publik: ${leaked.join(', ')}. Cek globIgnores di vite.config.ts.`);
+  if (!precached.some((u) => /(^|\/)index\.html$/.test(u))) errors.push('sw.js tidak mem-precache index.html → app tidak bisa jalan offline.');
   if (!sw.includes('BricolageGrotesque')) warns.push('sw.js tidak mem-precache font → tampilan offline bisa pakai font cadangan.');
   if (!/denylist/i.test(sw)) warns.push('sw.js tanpa navigateFallbackDenylist → "/" bisa dijawab app shell oleh SW.');
 }
