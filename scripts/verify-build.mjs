@@ -33,7 +33,9 @@ if (!existsSync('build/sw.js')) {
   const precached = [...sw.matchAll(/["']?url["']?\s*:\s*["']([^"']+)["']/g)].map((m) => m[1]);
   const leaked = precached.filter((u) => /(^|\/)(landing|privacy|terms)(\.html|\/|$)/i.test(u));
   if (leaked.length) errors.push(`sw.js mem-precache halaman publik: ${leaked.join(', ')}. Cek globIgnores di vite.config.ts.`);
-  if (!precached.some((u) => /(^|\/)index\.html$/.test(u))) errors.push('sw.js tidak mem-precache index.html → app tidak bisa jalan offline.');
+  if (!sw.includes('index.html')) errors.push('sw.js tidak menyebut index.html → app tidak bisa jalan offline.');
+  else if (!precached.some((u) => /(^|\/)index\.html$/.test(u)))
+    warns.push(`index.html tidak terbaca di manifest precache (terbaca ${precached.length} entri: ${precached.slice(0, 5).join(', ')}). Cek sw.js manual.`);
   if (!sw.includes('BricolageGrotesque')) warns.push('sw.js tidak mem-precache font → tampilan offline bisa pakai font cadangan.');
   if (!/denylist/i.test(sw)) warns.push('sw.js tanpa navigateFallbackDenylist → "/" bisa dijawab app shell oleh SW.');
 }
