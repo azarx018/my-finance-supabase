@@ -10,6 +10,32 @@ interface CategoryOption {
 interface WalletOption {
   id: string;
   name: string;
+  balance?: number; // saldo saat ini (sudah termasuk saldo bawaan dompet) — opsional demi kompatibilitas klien lama
+}
+
+interface PeriodBrief {
+  income: number;
+  expense: number;
+  cash_net: number;
+  carry_from_last_month: number;
+  status: 'empty' | 'surplus' | 'covered' | 'deficit';
+  savings_rate: number;
+  deposited_to_savings: number;
+  withdrawn_from_savings: number;
+}
+
+// Posisi keuangan yang dihitung APLIKASI (fungsi yang sama dengan Dashboard) — sumber kebenaran semua angka.
+interface FinanceSnapshot {
+  wallets: Array<{ id: string; name: string; balance: number }>;
+  wallets_total: number;
+  savings_buckets: Array<{ name: string; balance: number; target: number; status: string }>;
+  savings_total: number;
+  receivable: number;
+  payable: number;
+  net_worth: number;
+  this_month: PeriodBrief;
+  last_month: PeriodBrief;
+  budgets_this_month: Array<{ cat_id: string; limit: number; carried: number; used: number; remaining: number }>;
 }
 
 interface DebtOption {
@@ -55,6 +81,8 @@ interface AssistantRequestBody {
   existing_budget_this_month: Record<string, number>; // cat_id -> limit_amount already set for current_month
   spending_this_month: SpendingSummary; // "get_spending_summary" capability — see analytics.ts's getSpendingSummary
   spending_last_month: SpendingSummary; // for "kenapa pengeluaran gue naik?"-type questions
+  screen?: string; // halaman asal chat (budget/tabungan/riwayat/analitik/dashboard/asisten)
+  snapshot?: FinanceSnapshot; // posisi keuangan lengkap; opsional supaya klien lama tidak error
 }
 
 // The built-in "Tabungan" expense category (categories.ts — id:
@@ -255,13 +283,59 @@ function formatCategorySpend(list: CategorySpend[]): string {
   return list.map((c) => `- ${c.cat_id}: Rp${c.amount.toLocaleString('id-ID')}`).join('\n');
 }
 
+const SCREEN_HINT: Record<string, string> = {
+  budget: 'User sedang membuka halaman BUDGET. Prioritaskan topik budget: membuat budget (propose_budget), mengevaluasi budget vs rata-rata pengeluaran, dan kategori yang hampir/sudah lewat limit.',
+  tabungan: 'User sedang membuka halaman TABUNGAN. Prioritaskan topik kantong tabungan dan target.',
+  riwayat: 'User sedang membuka halaman RIWAYAT transaksi. Prioritaskan pencatatan dan pertanyaan soal transaksi.',
+  analitik: 'User sedang membuka halaman ANALITIK. Prioritaskan penjelasan tren, perbandingan bulan, dan kategori terbesar.',
+  dashboard: 'User sedang membuka halaman DASHBOARD. Prioritaskan ringkasan posisi keuangan dan pencatatan cepat.'
+};
+
+const rp = (n: number) => `Rp${Math.round(n).toLocaleString('id-ID')}`;
+
+const STATUS_TEXT: Record<PeriodBrief['status'], string> = {
+  empty: 'belum ada pemasukan/pengeluaran tercatat',
+  surplus: 'pemasukan ≥ pengeluaran (surplus)',
+  covered: 'pengeluaran dibayar dari sisa bulan lalu (BUKAN defisit)',
+  deficit: 'pengeluaran melebihi pemasukan dan sisa bulan lalu (defisit)'
+};
+
+function formatPeriod(label: string, p: PeriodBrief): string {
+  return `- ${label}: pemasukan ${rp(p.income)}, pengeluaran ${rp(p.expense)}, selisih ${p.cash_net < 0 ? '-' : ''}${rp(Math.abs(p.cash_net))}; sisa dari bulan sebelumnya ${rp(p.carry_from_last_month)}; ditabung ${rp(p.deposited_to_savings)}, ditarik dari tabungan ${rp(p.withdrawn_from_savings)}; savings rate ${p.savings_rate}%; status: ${STATUS_TEXT[p.status]}.`;
+}
+
+function formatSnapshot(snap: FinanceSnapshot | undefined): string {
+  if (!snap) return '(snapshot tidak tersedia — versi aplikasi lama; jangan menebak angka saldo)';
+  const wallets = snap.wallets.map((w) => `  - ${w.name}: ${rp(w.balance)}`).join('\n') || '  (tidak ada dompet)';
+  const buckets =
+    snap.savings_buckets
+      .map((b) => `  - ${b.name}: ${rp(b.balance)}${b.target > 0 ? ` dari target ${rp(b.target)}` : ''}${b.status === 'completed' ? ' (selesai)' : ''}`)
+      .join('\n') || '  (belum ada kantong tabungan)';
+  const budgets =
+    snap.budgets_this_month
+      .map((b) => `  - ${b.cat_id}: terpakai ${rp(b.used)} dari ${rp(b.limit)}${b.carried > 0 ? ` (termasuk sisa bulan lalu ${rp(b.carried)})` : ''}, sisa ${b.remaining < 0 ? '-' : ''}${rp(Math.abs(b.remaining))}`)
+      .join('\n') || '  (belum ada budget bulan ini)';
+  return `- TOTAL SALDO DOMPET (uang yang bisa dipakai sekarang): ${rp(snap.wallets_total)}. Rincian per dompet:
+${wallets}
+- TABUNGAN di kantong (terkunci, tidak ikut saldo dompet): ${rp(snap.savings_total)}. Rincian:
+${buckets}
+- Piutang (orang berutang ke user): ${rp(snap.receivable)} · Hutang (user berutang): ${rp(snap.payable)}
+- TOTAL KEKAYAAN BERSIH (dompet + tabungan + piutang − hutang): ${rp(snap.net_worth)}
+${formatPeriod('Bulan ini', snap.this_month)}
+${formatPeriod('Bulan lalu', snap.last_month)}
+- Budget bulan ini (terpakai vs limit efektif):
+${budgets}`;
+}
+
 function buildSystemInstruction(body: AssistantRequestBody): string {
   const expenseCategoryList = body.expense_categories
     .filter((c) => c.id !== SAVINGS_CATEGORY_ID)
     .map((c) => `- ${c.id}: ${c.name}`)
     .join('\n');
   const incomeCategoryList = body.income_categories.map((c) => `- ${c.id}: ${c.name}`).join('\n');
-  const walletList = body.wallets.map((w) => `- ${w.id}: ${w.name}`).join('\n') || '(tidak ada dompet sama sekali)';
+  const walletList =
+    body.wallets.map((w) => `- ${w.id}: ${w.name}${typeof w.balance === 'number' ? ` (saldo ${rp(w.balance)})` : ''}`).join('\n') ||
+    '(tidak ada dompet sama sekali)';
   const debtList =
     body.debts.map((d) => `- ${d.id}: ${d.name} (${d.dtype === 'borrowed' ? 'hutang' : 'piutang'}, sisa Rp${d.remaining.toLocaleString('id-ID')})`).join('\n') ||
     '(tidak ada hutang/piutang aktif)';
@@ -282,9 +356,19 @@ function buildSystemInstruction(body: AssistantRequestBody): string {
       ? Math.round(((body.spending_this_month.total - body.spending_last_month.total) / body.spending_last_month.total) * 100)
       : null;
 
-  return `Kamu adalah asisten keuangan pribadi di aplikasi "My Finance". Jawab dengan Bahasa Indonesia santai, ringkas (ini chat di HP, bukan esai), dan ramah.
+  return `Kamu adalah asisten keuangan pribadi di aplikasi "Flow Money". Jawab dengan Bahasa Indonesia santai, ringkas (ini chat di HP, bukan esai), dan ramah.
 
 Hari ini tanggal: ${body.today}. Bulan yang sedang dibahas: ${body.current_month}.
+${body.screen && SCREEN_HINT[body.screen] ? SCREEN_HINT[body.screen] + ' (Tetap jawab pertanyaan lain kalau user menanyakannya.)\n' : ''}
+POSISI KEUANGAN SAAT INI — dihitung aplikasi dengan rumus yang SAMA dengan layar Dashboard, jadi ini SUMBER KEBENARAN semua angka. Angka yang pernah kamu sebut di riwayat chat bisa sudah usang (data berubah/tersinkron); selalu pakai angka di sini:
+${formatSnapshot(body.snapshot)}
+
+ATURAN ANGKA (WAJIB):
+A. Pertanyaan seperti "sisa duit gue berapa", "saldo gue", "uang gue tinggal berapa" → jawab dengan TOTAL SALDO DOMPET beserta rincian per dompet. Saldo awal/bawaan yang diisi saat dompet dibuat SUDAH termasuk di angka itu. DILARANG menjawab 0 atau "belum ada uang" hanya karena belum ada pemasukan tercatat — pemasukan bukan sumber satu-satunya saldo.
+B. Bedakan dengan jelas: saldo dompet (bisa dipakai), tabungan di kantong (terkunci sampai ditarik), dan total kekayaan bersih. Kalau user bilang "total uang gue" tanpa konteks, sebut saldo dompet lalu tambahkan tabungan kalau ada.
+C. "Aman nggak bulan ini?" → lihat status Bulan ini. Status "dibayar dari sisa bulan lalu" artinya BUKAN defisit (uangnya sisa dari pemasukan bulan sebelumnya). Jangan bilang user boros/defisit kalau statusnya itu.
+D. Kalau angka yang ditanya tidak ada di data ini (mis. transaksi spesifik, tanggal tertentu), katakan terus terang tidak punya datanya dan sarankan cek Riwayat — jangan menebak.
+E. Tulis angka rupiah dengan format Rp dan titik ribuan.
 
 ${salaryLine}
 

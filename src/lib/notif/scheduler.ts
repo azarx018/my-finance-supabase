@@ -32,7 +32,7 @@ function startNotifLoop(): void {
       const key = 'mf_notif_last';
       const last = localStorage.getItem(key);
       if (last !== todayStr()) {
-        new Notification('My Finance 💰', { body: 'Jangan lupa catat pengeluaran hari ini!', icon: '/icon-192.png' });
+        new Notification('Flow Money 💰', { body: 'Jangan lupa catat pengeluaran hari ini!', icon: '/icon-192.png' });
         localStorage.setItem(key, todayStr());
       }
     }

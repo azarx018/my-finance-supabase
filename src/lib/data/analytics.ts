@@ -306,3 +306,22 @@ export function getActiveDebts(debts: SyncableRecord[]): ActiveDebtInfo[] {
       remaining: (d.amount as number) - ((d.paid_amount as number) || 0)
     }));
 }
+
+/**
+ * "Dihitung untuk bulan lain": pemasukan boleh punya `for_month` (YYYY-MM). Contoh: gajian 28 Okt
+ * yang dihitung untuk November. Untuk ANALISIS (savings rate, total pemasukan, grafik bulanan) pemasukan
+ * itu dipindah ke tanggal 1 bulan tujuannya. Saldo dompet dan Riwayat tetap memakai tanggal asli
+ * (uangnya memang masuk tanggal itu), jadi pakai fungsi ini hanya untuk angka analisis.
+ */
+export function toAnalysisView(transactions: SyncableRecord[]): SyncableRecord[] {
+  let changed = false;
+  const out = transactions.map((t) => {
+    const fm = t.for_month as string | null | undefined;
+    if (t.type === 'income' && typeof fm === 'string' && /^\d{4}-\d{2}$/.test(fm) && fm !== (t.date as string).slice(0, 7)) {
+      changed = true;
+      return { ...t, date: `${fm}-01` };
+    }
+    return t;
+  });
+  return changed ? out : transactions;
+}

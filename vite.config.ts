@@ -30,11 +30,11 @@ export default defineConfig({
       // data, the SW only owns offline behavior for the app shell itself.
       workbox: {
         // Prefixes every Workbox-managed cache name with the app version
-        // (e.g. "my-finance-v0.1.0-precache-..."), purely so it's obvious
+        // (e.g. "flowmoney-v0.1.0-precache-..."), purely so it's obvious
         // in DevTools which deployed version a given cache belongs to —
         // doesn't change update-detection behavior, which is already
         // content-hash based (see note below).
-        cacheId: `my-finance-v${pkg.version}`,
+        cacheId: `flowmoney-v${pkg.version}`,
         // 'development' skips workbox-build's own terser minification pass
         // on the generated sw.js. Needed because terser can hang
         // indefinitely in constrained/ARM environments (e.g. building
@@ -42,19 +42,25 @@ export default defineConfig({
         // bundle, which Vite still minifies normally via esbuild. The
         // service worker file just ends up a few KB larger, unminified.
         mode: 'development',
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,woff,woff2}'],
+        // LANDING PAGE (static/landing.html, served at "/" by vercel.json):
+        // it must NEVER be part of the PWA. Three things keep it out:
+        //  1. globIgnores   → landing.html AND static/landing/* (screenshots, og.png)
+        //     are not precached, so none of it is downloaded with the app
+        //  2. directoryIndex: null → Workbox by default answers "/" with the
+        //     precached "/index.html" (the app shell). That would hide the
+        //     landing from anyone who already has the SW installed.
+        //  3. navigateFallbackDenylist → navigations to "/" and "/landing.html"
+        //     skip the app-shell fallback and go to the network.
+        // Result: landing = online only (link / browser). The installed app
+        // starts at /dashboard (manifest start_url) and works fully offline.
+        globIgnores: ['**/landing.html', '**/landing/**', '**/privacy.html', '**/terms.html'],
+        directoryIndex: null,
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/$/, /^\/landing\.html$/, /^\/privacy\/?$/, /^\/terms\/?$/, /^\/privacy\.html$/, /^\/terms\.html$/],
         runtimeCaching: [
           {
-            // Google Fonts — cache-first, long lived
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }
-            }
-          },
-          {
+            // Fonts are self-hosted (static/fonts) and precached via globPatterns above.
             // Explicitly bypass SW for Supabase — always go to network,
             // let the sync engine decide what happens when it fails.
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -63,14 +69,19 @@ export default defineConfig({
         ]
       },
       manifest: {
-        name: 'My Finance',
-        short_name: 'My Finance',
+        name: 'Flow Money',
+        short_name: 'Flow Money',
         description: 'Pencatatan keuangan pribadi — income & expense tracker',
-        start_url: '/',
+        // "/" is the public landing page (online only). The installed app
+        // must open straight into the app, which is precached/offline-ready.
+        // `id` pins the app identity to the old value so existing installs
+        // are treated as the same app after start_url changes.
+        id: '/',
+        start_url: '/dashboard',
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#0a0a0f',
+        background_color: '#ffffff',
         theme_color: '#ffffff',
         lang: 'id',
         categories: ['finance', 'productivity', 'utilities'],

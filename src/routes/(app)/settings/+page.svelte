@@ -132,6 +132,8 @@
       const extra: string[] = [];
       if (result.sanitized > 0) extra.push(`${result.sanitized} relasi diperbaiki`);
       if (result.skipped > 0) extra.push(`${result.skipped} baris dilewati (referensi hilang)`);
+      if (result.repaired > 0) extra.push(`${result.repaired} pasangan tabungan dilengkapi`);
+      if (result.warnings.length > 0) extra.push(result.warnings[0]);
       const suffix = extra.length > 0 ? ` — ${extra.join(', ')}` : '';
       showToast(`✅ ${result.total} data diimpor (digabung dengan data yang ada)${suffix}`);
     } catch (err) {
@@ -188,7 +190,7 @@
     {(($session?.user?.email ?? 'M')[0] ?? 'M').toUpperCase()}
   </div>
   <div class="min-w-0 relative z-10">
-    <p class="text-lg font-extrabold truncate">{$session?.user?.email ?? 'My Finance'}</p>
+    <p class="text-lg font-extrabold truncate">{$session?.user?.email ?? 'Flow Money'}</p>
     <p class="text-sm font-semibold">
       v{__APP_VERSION__} · {online ? 'Online' : 'Offline'}{pendingPush > 0 ? ` · ${pendingPush} menunggu sync` : ''}
     </p>
@@ -328,7 +330,7 @@
         class="w-full text-sm font-medium py-3 rounded-lg text-white"
         style="background: var(--primary)"
       >
-        <Icon name="phone" /> Install My Finance ke Layar Utama
+        <Icon name="phone" /> Install Flow Money ke Layar Utama
       </button>
     </section>
   {/if}
@@ -511,6 +513,6 @@
     ><Icon name="out" /> Keluar</button>
   </section>
 
-  <p class="text-xs text-txt-muted text-center">My Finance · v{__APP_VERSION__}</p>
+  <p class="text-xs text-txt-muted text-center">Flow Money · v{__APP_VERSION__}</p>
   <p class="text-[10px] text-txt-muted text-center -mt-4">© 2026 Azar-Dev</p>
 </div>

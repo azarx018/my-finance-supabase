@@ -20,7 +20,7 @@
         <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v10M9.5 9.5h4a1.5 1.5 0 010 3h-3a1.5 1.5 0 000 3h4" />
       </svg>
     </span>
-    My Finance
+    Flow Money
   </div>
 
   {#each SIDEBAR_ITEMS as item (item.id)}

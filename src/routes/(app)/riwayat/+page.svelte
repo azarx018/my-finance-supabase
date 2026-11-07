@@ -1,4 +1,6 @@
 <script lang="ts">
+  import AssistantDock from '$lib/components/AssistantDock.svelte';
+  import { monthLabelOf } from '$lib/data/budget';
   import { reveal } from '$lib/actions/reveal';
   import { catColor } from '$lib/data/catColor';
   import Icon from '$lib/components/Icon.svelte';
@@ -107,6 +109,8 @@
     </select>
   </div>
 
+  <AssistantDock screen="riwayat" />
+
   {#if list.length === 0}
     <p class="text-xs text-txt-secondary text-center py-16 span-all">Belum ada transaksi yang cocok.</p>
   {/if}
@@ -156,6 +160,9 @@
           <p class="text-sm font-medium text-txt-primary truncate">{t.description}</p>
           <p class="text-xs text-txt-secondary truncate">
             {cat?.name ?? ''} · {w?.emoji ?? ''} {w?.name ?? ''} · {formatDateShort(t.date as string)}
+            {#if t.type === 'income' && t.for_month && t.for_month !== (t.date as string).slice(0, 7)}
+              · dihitung untuk {monthLabelOf(t.for_month as string)}
+            {/if}
           </p>
         </div>
         <p class="text-sm font-semibold shrink-0" style="color: {dt === 'income' ? 'var(--income)' : 'var(--expense)'}">

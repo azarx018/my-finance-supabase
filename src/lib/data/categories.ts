@@ -51,3 +51,15 @@ export function getCatList(type: 'income' | 'expense', customCats: Cat[] = []): 
 export function findCat(id: string, type: 'income' | 'expense', customCats: Cat[] = []): Cat | undefined {
   return getCatList(type, customCats).find((c) => c.id === id);
 }
+
+/**
+ * Kategori milik sistem: dibuat otomatis oleh fitur Tabungan / Hutang, bukan untuk dipilih manual.
+ * Kalau dipilih manual sebagai pengeluaran biasa, uangnya "hilang" dari dompet tanpa masuk kantong
+ * mana pun dan merusak savings rate. Gunakan menu Tabungan / Hutang.
+ */
+export const SYSTEM_CAT_IDS = ['savings', 'saving_transfer', 'debt_transfer'];
+
+/** Daftar kategori untuk form input manual: tanpa kategori sistem (kecuali sedang mengedit transaksi lama yang memakainya). */
+export function getPickableCats(type: 'income' | 'expense', customCats: Cat[] = [], keepId?: string): Cat[] {
+  return getCatList(type, customCats).filter((c) => !SYSTEM_CAT_IDS.includes(c.id) || c.id === keepId);
+}

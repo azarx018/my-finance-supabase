@@ -3,6 +3,7 @@ import { session, authReady, passwordRecovery } from './session';
 import { startSync, stopSync } from '$lib/sync/engine';
 import { wipeLocalDatabase } from '$lib/db/dexie';
 import { get } from 'svelte/store';
+import type { Provider } from '@supabase/supabase-js';
 
 export { session, authReady, passwordRecovery, getUserId } from './session';
 
@@ -52,6 +53,27 @@ export async function signUp(email: string, password: string) {
 
 export async function signIn(email: string, password: string) {
   return supabase.auth.signInWithPassword({ email, password });
+}
+
+/**
+ * Masuk lewat OAuth (Google). Browser diarahkan ke penyedia login, lalu kembali ke /login dengan sesi
+ * (dibaca otomatis oleh supabase-js lewat detectSessionInUrl) dan halaman /login meneruskan ke /dashboard.
+ * Kalau penyedia belum diaktifkan di Supabase / redirect URL belum didaftarkan, error-nya dikembalikan
+ * (atau muncul di URL saat kembali) dan ditampilkan di halaman login.
+ * Tambah penyedia lain (mis. 'github', 'apple') cukup memanggil fungsi ini dengan provider berbeda.
+ */
+export async function signInWithOAuth(provider: Provider) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return { data: null, error: new Error('Butuh koneksi internet untuk masuk') };
+  }
+  return supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${window.location.origin}/login`,
+      // Selalu tampilkan pemilih akun supaya tidak otomatis masuk ke akun Google yang salah.
+      queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined
+    }
+  });
 }
 
 /**

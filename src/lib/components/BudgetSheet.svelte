@@ -12,24 +12,29 @@
 
   export let open = false;
   export let editing: SyncableRecord | null = null;
+  /** Bulan yang sedang dilihat di halaman Budget (YYYY-MM) — budget disimpan untuk bulan ini. */
+  export let month: string = getBudgetMonth();
   export let onClose: () => void = () => {};
 
   let catId = '';
   let limitStr = '';
   let newCatOpen = false;
+  let rollover = false;
+  let hadRollover = false; // record lama sudah punya kolom rollover → tulis false saat dimatikan
 
   let wasOpen = false;
   $: {
     if (open && !wasOpen) {
     catId = (editing?.cat_id as string) || '';
     limitStr = editing ? Number(editing.limit_amount).toLocaleString('id-ID') : '';
+    rollover = editing?.rollover === true;
+    hadRollover = !!editing && 'rollover' in editing;
     }
     wasOpen = open;
   }
 
   // Only offer expense categories not already budgeted this month (the
   // category currently being edited stays available to itself).
-  $: month = getBudgetMonth();
   $: budgetedCatIds = $budgets
     .filter((b) => b.month === month && b.id !== editing?.id)
     .map((b) => b.cat_id as string);
@@ -61,7 +66,15 @@
       showToast('Masukkan nominal budget', 'error');
       return;
     }
-    await upsertRecord('budgets', { id: editing?.id, cat_id: catId, limit_amount: limit, month });
+    // `rollover` hanya dikirim kalau dipakai (atau sedang dimatikan dari yang sebelumnya aktif) —
+    // supaya budget biasa tetap aman walau migrasi database belum dijalankan.
+    await upsertRecord('budgets', {
+      id: editing?.id,
+      cat_id: catId,
+      limit_amount: limit,
+      month,
+      ...(rollover || hadRollover ? { rollover } : {})
+    });
     showToast(editing ? 'Budget diupdate' : 'Budget ditambahkan');
     onClose();
   }
@@ -120,6 +133,11 @@
       placeholder="Nominal budget"
       class="w-full rounded-lg bg-base-input border border-border px-4 py-3 text-sm text-txt-primary"
     />
+
+    <label class="flex items-start gap-2 text-xs text-txt-secondary">
+      <input type="checkbox" bind:checked={rollover} class="mt-0.5" />
+      <span>Tambahkan sisa budget bulan lalu ke bulan ini (kalau bulan lalu ada budget kategori ini dan belum habis).</span>
+    </label>
 
     <button
       on:click={submit}

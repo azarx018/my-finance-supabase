@@ -1,12 +1,14 @@
 <script lang="ts">
+  import AssistantDock from '$lib/components/AssistantDock.svelte';
   import { reveal } from '$lib/actions/reveal';
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
-  import { savingBuckets, savingTxs, transactions } from '$lib/stores/data';
-  import { getBucketBalance } from '$lib/data/saving';
-  import { formatRp, formatRpC } from '$lib/data/format';
+  import { savingBuckets, savingTxs } from '$lib/stores/data';
+  import { getBucketBalance, getSavingTotal, getSavingFlow, countMismatches, type SavingMismatch } from '$lib/data/saving';
+  import { formatRp, formatRpC, todayStr } from '$lib/data/format';
   import { fabHandler } from '$lib/stores/fab';
-  import { upsertRecord, softDeleteRecord } from '$lib/db/repo';
+  import { upsertRecord } from '$lib/db/repo';
+  import { deleteBucketCascade, checkSavingConsistency, repairSavingMismatches } from '$lib/db/savingOps';
   import { showToast } from '$lib/stores/toast';
   import BucketSheet from '$lib/components/BucketSheet.svelte';
   import SavingTxSheet from '$lib/components/SavingTxSheet.svelte';
@@ -46,20 +48,36 @@
     showToast(nowCompleted ? 'Kantong ditandai selesai 🏁' : 'Kantong dibuka lagi');
   }
 
-  // Mirrors deleteSavingBucket() in the original: soft-delete the bucket
-  // plus every saving_tx and transaction tied to it. Wallet balances are
-  // restored automatically since those transactions stop counting once
-  // marked deleted.
+  // Hapus kantong + semua riwayatnya dalam satu transaksi atomic (savingOps.ts).
+  // Saldo dompet otomatis kembali karena transaksi cerminnya ikut terhapus.
   async function removeBucket(b: SyncableRecord) {
     if (!confirm(`Hapus kantong "${b.name}"? Transaksi terkait akan dihapus dan saldo dikembalikan.`)) return;
-    await softDeleteRecord('saving_buckets', b.id);
-    for (const t of $savingTxs.filter((x) => x.bucket_id === b.id)) {
-      await softDeleteRecord('saving_txs', t.id);
-    }
-    for (const t of $transactions.filter((x) => x.bucket_id === b.id)) {
-      await softDeleteRecord('transactions', t.id);
-    }
+    await deleteBucketCascade(b.id);
     showToast('Kantong dihapus, saldo dikembalikan', 'info');
+  }
+
+  // Ringkasan: total semua kantong + gerakan bulan ini.
+  $: total = getSavingTotal($savingBuckets, $savingTxs);
+  $: monthFrom = todayStr().slice(0, 8) + '01';
+  $: flow = getSavingFlow($savingTxs, monthFrom, todayStr());
+
+  // Cek konsistensi: setiap setoran/penarikan harus punya pasangan di dompet (dan sebaliknya).
+  let checked: SavingMismatch | null = null;
+  let repairing = false;
+  function runCheck() {
+    checked = checkSavingConsistency();
+    if (countMismatches(checked) === 0) showToast('Semua data tabungan cocok ✅');
+  }
+  async function runRepair() {
+    if (!checked || repairing) return;
+    repairing = true;
+    try {
+      const n = await repairSavingMismatches(checked);
+      showToast(`${n} data diperbaiki`);
+      checked = checkSavingConsistency();
+    } finally {
+      repairing = false;
+    }
   }
 </script>
 
@@ -90,6 +108,19 @@
       Selesai
     </button>
   </div>
+
+  <section class="bg-base-card rounded-xl shadow-sm p-4 border border-border span-all">
+    <p class="text-xs text-txt-secondary">Total tabungan</p>
+    <p class="text-2xl font-extrabold tabular-nums mt-0.5" style="color: var(--info)">{formatRp(total)}</p>
+    <p class="text-[11px] text-txt-secondary mt-1">
+      Bulan ini: ditabung {formatRpC(flow.deposited)} · ditarik {formatRpC(flow.withdrawn)}
+    </p>
+    <p class="text-[11px] text-txt-secondary mt-1">
+      Uang di kantong tetap dihitung di Total Kekayaan, tapi tidak bisa dipakai belanja sebelum ditarik.
+    </p>
+  </section>
+
+  <AssistantDock screen="tabungan" />
 
   {#if list.length === 0}
     <p class="text-xs text-txt-secondary text-center py-16 span-all">
@@ -166,6 +197,35 @@
       </div>
     </div>
   {/each}
+
+  <section class="span-all flex flex-col gap-2 items-start">
+    <button on:click={runCheck} class="text-xs underline text-txt-secondary">Cek kecocokan data tabungan</button>
+    {#if checked && countMismatches(checked) > 0}
+      <div class="rounded-xl p-3 border border-border text-xs w-full" style="background: var(--expense-bg)">
+        <p class="font-semibold" style="color: var(--expense)">
+          Ada {countMismatches(checked)} data yang tidak berpasangan
+        </p>
+        <p class="text-txt-secondary mt-1">
+          {checked.missingMirror.length} setoran/penarikan belum tercatat di dompet ·
+          {checked.missingSavingTx.length} potongan dompet belum masuk ke kantong ·
+          {checked.orphanMirror.length} menunjuk kantong yang tidak ada.
+        </p>
+        {#if checked.missingMirror.length + checked.missingSavingTx.length > 0}
+          <button
+            on:click={runRepair}
+            disabled={repairing}
+            class="mt-2 px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-60"
+            style="background: var(--primary)"
+          >
+            {repairing ? 'Memperbaiki…' : 'Perbaiki otomatis'}
+          </button>
+        {/if}
+        {#if checked.orphanMirror.length > 0}
+          <p class="text-txt-secondary mt-2">Data yang menunjuk kantong hilang perlu dicek manual di Riwayat.</p>
+        {/if}
+      </div>
+    {/if}
+  </section>
 </div>
 
 <BucketSheet open={bucketSheetOpen} editing={editingBucket} onClose={() => (bucketSheetOpen = false)} />

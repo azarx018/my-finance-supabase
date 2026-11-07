@@ -8,7 +8,7 @@
     </svg>
   </div>
   <div class="text-center">
-    <h1 class="text-3xl font-extrabold tracking-tight text-txt-primary">My Finance</h1>
+    <h1 class="text-3xl font-extrabold tracking-tight text-txt-primary">Flow Money</h1>
     <p class="text-sm font-medium text-txt-secondary mt-1">Catat. Kelola. Bijak.</p>
   </div>
   <div class="w-36 h-3 rounded-full overflow-hidden" style="border: 2px solid var(--line); background: var(--bg-card)">

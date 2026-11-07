@@ -2,8 +2,12 @@ import { db, SYNC_TABLES, type SyncTable } from '$lib/db/dexie';
 import { upsertRecord } from './repo';
 import { todayStr } from '$lib/data/format';
 import { getUserId } from '$lib/stores/session';
+import { findSavingMismatches } from '$lib/data/saving';
+import { repairSavingMismatches } from './savingOps';
 
-const APP_VERSION = 'sveltekit-1';
+const APP_VERSION = 'sveltekit-2';
+// Naik tiap kali bentuk data backup bertambah (2 = for_month di transaksi, rollover di budget).
+const BACKUP_SCHEMA = 2;
 
 function dlBlob(content: string, filename: string, type: string): void {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -31,15 +35,20 @@ function dlBlob(content: string, filename: string, type: string): void {
 export async function exportJSON(): Promise<void> {
   const userId = getUserId();
   const data: Record<string, unknown> = {
-    app: 'My Finance',
+    app: 'Flow Money',
     version: APP_VERSION,
     exported: new Date().toISOString()
   };
+  const counts: Record<string, number> = {};
   for (const table of SYNC_TABLES) {
     const rows = await db[table].toArray();
-    data[table] = rows.filter((r) => !r.deleted_at && r.user_id === userId);
+    const mine = rows.filter((r) => !r.deleted_at && r.user_id === userId);
+    data[table] = mine;
+    counts[table] = mine.length;
   }
-  dlBlob(JSON.stringify(data, null, 2), `my-finance-backup-${todayStr()}.json`, 'application/json');
+  // meta dipakai importJSON() untuk mendeteksi file terpotong / diedit tangan.
+  data.meta = { schema: BACKUP_SCHEMA, counts };
+  dlBlob(JSON.stringify(data, null, 2), `flowmoney-backup-${todayStr()}.json`, 'application/json');
 }
 
 export async function exportCSV(): Promise<void> {
@@ -60,14 +69,16 @@ export async function exportCSV(): Promise<void> {
   );
   const csv = ['ID,Tipe,Nominal,Deskripsi,Tanggal,Dompet,Kategori,Catatan', ...lines].join('\n');
   // BOM prefix so Excel opens the UTF-8 file with correct encoding.
-  dlBlob('\uFEFF' + csv, `my-finance-${todayStr()}.csv`, 'text/csv;charset=utf-8;');
+  dlBlob('\uFEFF' + csv, `flowmoney-${todayStr()}.csv`, 'text/csv;charset=utf-8;');
 }
 
 export interface ImportResult {
   counts: Record<string, number>;
   total: number;
   sanitized: number; // rows whose dangling FK was nulled out instead of dropping the row
-  skipped: number; // rows dropped entirely (NOT NULL FK pointed nowhere)
+  skipped: number; // rows dropped entirely (NOT NULL FK pointed nowhere, or a wallet-moving row lost its partner)
+  repaired: number; // saving pairs completed after import (saving_txs ↔ mirror transaction)
+  warnings: string[]; // e.g. file count mismatch
 }
 
 // Fields from the ORIGINAL vanilla (pre-Supabase) app that never got
@@ -183,6 +194,11 @@ export async function importJSON(file: File): Promise<ImportResult> {
   let total = 0;
   let sanitized = 0;
   let skipped = 0;
+  const warnings: string[] = [];
+  const declared = (data.meta?.counts ?? null) as Record<string, number> | null;
+  if (typeof data.meta?.schema === 'number' && data.meta.schema > BACKUP_SCHEMA) {
+    throw new Error('File backup dari versi aplikasi yang lebih baru. Perbarui aplikasi dulu lalu coba lagi.');
+  }
 
   for (const table of SYNC_TABLES as readonly SyncTable[]) {
     const rows = data[table];
@@ -195,12 +211,21 @@ export async function importJSON(file: File): Promise<ImportResult> {
 
       if (fkSpec) {
         let dropRow = false;
+        // Transaksi cermin tabungan/hutang menggerakkan saldo dompet. Kalau kantong/hutangnya tidak ada,
+        // JANGAN dikosongkan relasinya (dulu: uang hilang dari dompet tanpa masuk kantong mana pun) —
+        // lewati barisnya supaya dompet tidak berubah tanpa pasangan.
+        const mirrorField =
+          table === 'transactions' && row.type === 'saving_transfer'
+            ? 'bucket_id'
+            : table === 'transactions' && row.type === 'debt_transfer'
+              ? 'debt_ref'
+              : null;
         for (const { field, refTable, required } of fkSpec) {
           const value = row[field];
           if (value == null) continue; // already null — nothing to check
           if (knownIds[refTable].has(value)) continue; // valid reference
 
-          if (required) {
+          if (required || field === mirrorField) {
             dropRow = true;
             break;
           }
@@ -219,7 +244,17 @@ export async function importJSON(file: File): Promise<ImportResult> {
       total++;
     }
     counts[table] = imported;
+    if (declared && typeof declared[table] === 'number' && declared[table] !== rows.length) {
+      warnings.push(`${table}: file menyebut ${declared[table]} baris, isinya ${rows.length} (file mungkin terpotong)`);
+    }
   }
   if (total === 0) throw new Error('Tidak ada data yang bisa diimpor dari file ini');
-  return { counts, total, sanitized, skipped };
+
+  // Pastikan setiap setoran/penarikan tabungan punya pasangan di dompet (dan sebaliknya) setelah digabung
+  // dengan data yang sudah ada. Membaca langsung dari Dexie (bukan store) supaya tidak tertinggal satu tick.
+  const mine = async (t: SyncTable) => (await db[t].toArray()).filter((r) => !r.deleted_at && r.user_id === userId);
+  const [buckets, stxs, txs] = await Promise.all([mine('saving_buckets'), mine('saving_txs'), mine('transactions')]);
+  const repaired = await repairSavingMismatches(findSavingMismatches(buckets, stxs, txs), buckets);
+
+  return { counts, total, sanitized, skipped, repaired, warnings };
 }

@@ -64,12 +64,14 @@ export type AssistantAction =
 
 export type AssistantResponse = { type: 'text'; text: string } | { type: 'actions'; actions: AssistantAction[] };
 
+import type { FinanceSnapshot } from '$lib/data/snapshot';
+
 export interface AssistantContext {
   today: string; // YYYY-MM-DD
   current_month: string;
   expense_categories: Array<{ id: string; name: string }>;
   income_categories: Array<{ id: string; name: string }>;
-  wallets: Array<{ id: string; name: string }>;
+  wallets: Array<{ id: string; name: string; balance: number }>;
   debts: Array<{ id: string; name: string; dtype: 'borrowed' | 'lent'; remaining: number }>;
   memory: string[];
   salary_transaction: { amount: number; date: string; wallet_id: string | null } | null;
@@ -77,6 +79,10 @@ export interface AssistantContext {
   existing_budget_this_month: Record<string, number>;
   spending_this_month: { total: number; by_category: Array<{ cat_id: string; amount: number }> };
   spending_last_month: { total: number; by_category: Array<{ cat_id: string; amount: number }> };
+  /** Posisi keuangan lengkap (saldo, tabungan, hutang, bulan ini/lalu, budget terpakai) — sumber kebenaran angka. */
+  snapshot: FinanceSnapshot;
+  /** Halaman asal chat ('budget', 'tabungan', 'riwayat', 'analitik', 'dashboard', 'asisten'). */
+  screen?: string;
 }
 
 export function isAssistantConfigured(): boolean {

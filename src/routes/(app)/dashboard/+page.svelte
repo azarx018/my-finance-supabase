@@ -1,11 +1,14 @@
 <script lang="ts">
+  import AssistantDock from '$lib/components/AssistantDock.svelte';
   import { catColor } from '$lib/data/catColor';
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
-  import { wallets, transactions, customCategories } from '$lib/stores/data';
+  import { wallets, transactions, customCategories, savingBuckets, savingTxs, debts } from '$lib/stores/data';
   import { computeWalletStats } from '$lib/data/wallets';
-  import { getDateRange, calcTotals, getDisplayType } from '$lib/data/analytics';
-  import { formatRp, formatRpC, formatDateShort } from '$lib/data/format';
+  import { getDateRange, calcTotals, getDisplayType, toAnalysisView } from '$lib/data/analytics';
+  import { summarizePeriod } from '$lib/data/cashflow';
+  import { getNetWorth } from '$lib/data/saving';
+  import { formatRp, formatRpC, formatDateShort, todayStr } from '$lib/data/format';
   import { getCatList, type Cat } from '$lib/data/categories';
   import { fabHandler } from '$lib/stores/fab';
   import TxSheet from '$lib/components/TxSheet.svelte';
@@ -31,17 +34,33 @@
   onDestroy(() => fabHandler.set(null));
 
   $: stats = computeWalletStats($wallets, $transactions);
-  $: netWorth = $wallets.reduce((s, w) => s + (stats[w.id]?.balance ?? 0), 0);
+  // Total kekayaan = dompet + isi kantong tabungan (menabung hanya memindahkan uang, bukan mengurangi kekayaan).
+  $: worth = getNetWorth($wallets, $transactions, $savingBuckets, $savingTxs, $debts);
+  $: netWorth = worth.total;
 
   $: range = getDateRange('month');
-  $: monthList = $transactions.filter(
+  // Angka pemasukan/pengeluaran memakai tampilan analisis (pemasukan "untuk bulan depan" dihitung di bulannya).
+  $: analysisTxs = toAnalysisView($transactions);
+  $: monthList = analysisTxs.filter(
     (t) =>
       (!range || ((t.date as string) >= range.from && (t.date as string) <= range.to)) &&
       t.type !== 'transfer'
   );
   $: totals = calcTotals(monthList);
-  $: savings = totals.income - totals.expense;
-  $: savRate = totals.income > 0 ? Math.round((savings / totals.income) * 100) : 0;
+  // Savings rate sadar "sisa bulan lalu" (lihat lib/data/cashflow.ts): pengeluaran yang dibayar dari
+  // gaji bulan lalu tidak lagi dianggap defisit. Kalau pemasukan >= pengeluaran, hasilnya sama seperti dulu.
+  $: sum = range
+    ? summarizePeriod($wallets, $transactions, range.from, range.to)
+    : summarizePeriod($wallets, $transactions, todayStr().slice(0, 8) + '01', todayStr());
+  $: savRate = Math.max(0, sum.rate);
+  // Persen yang mengisi ring: savings rate, atau sisa dana bulan lalu yang belum terpakai.
+  $: ringPct =
+    sum.status === 'covered'
+      ? Math.round((sum.carryLeft / Math.max(1, sum.carry)) * 100)
+      : sum.status === 'deficit'
+        ? 0
+        : savRate;
+  $: ringColor = ringPct >= 30 ? 'var(--income)' : ringPct >= 10 ? 'var(--warn)' : 'var(--expense)';
 
   // Includes debt_transfer/saving_transfer/transfer too — cash moving
   // in/out from paying off a debt, tapping a savings bucket, or moving
@@ -86,7 +105,7 @@
 
   // Ring savings rate: keliling lingkaran r=32 → 201.
   const CIRC = 201;
-  $: ringOffset = CIRC * (1 - Math.min(100, Math.max(2, savRate)) / 100);
+  $: ringOffset = CIRC * (1 - Math.min(100, Math.max(2, ringPct)) / 100);
 
   let flip = false;
   const quips = [
@@ -125,7 +144,13 @@
     </button>
     <p class="text-sm font-semibold">Total kekayaan</p>
     <p class="text-4xl font-extrabold mt-1 tabular-nums" style="letter-spacing: -0.04em" use:countUp={{ value: netWorth, format: formatRp }}></p>
-    <p class="text-sm font-semibold mt-2">{$wallets.length} dompet · pengeluaran 7 hari terakhir</p>
+    <p class="text-sm font-semibold mt-2">Dompet {formatRpC(worth.wallets)} · Tabungan {formatRpC(worth.savings)}</p>
+    {#if worth.receivable > 0 || worth.payable > 0}
+      <p class="text-xs mt-0.5 opacity-90">
+        {#if worth.receivable > 0}Piutang +{formatRpC(worth.receivable)}{/if}{#if worth.receivable > 0 && worth.payable > 0} · {/if}{#if worth.payable > 0}Hutang −{formatRpC(worth.payable)}{/if}
+      </p>
+    {/if}
+    <p class="text-xs mt-0.5 opacity-80">pengeluaran 7 hari terakhir</p>
     <div class="flex items-end gap-1.5 h-12 mt-3" aria-hidden="true">
       {#each spark as v, i}
         <i
@@ -135,6 +160,8 @@
       {/each}
     </div>
   </section>
+
+  <AssistantDock screen="dashboard" />
 
   <section class="grid grid-cols-2 gap-3">
     <div class="rounded-xl p-4 shadow-sm" style="background: var(--income-bg); border: 2px solid var(--line)">
@@ -159,19 +186,27 @@
         cy="40"
         r="32"
         fill="none"
-        stroke={savRate >= 30 ? 'var(--income)' : savRate >= 10 ? 'var(--warn)' : 'var(--expense)'}
+        stroke={ringColor}
         stroke-width="12"
         stroke-dasharray={CIRC}
         stroke-dashoffset={mounted ? ringOffset : CIRC}
       />
     </svg>
     <div>
-      <p class="text-xs font-semibold text-txt-secondary">Savings rate bulan ini</p>
-      <p class="text-4xl font-extrabold tabular-nums" style="letter-spacing: -0.04em; color: {savRate >= 30 ? 'var(--income)' : savRate >= 10 ? 'var(--warn)' : 'var(--expense)'}">
-        {savRate}%
+      <p class="text-xs font-semibold text-txt-secondary">
+        {sum.status === 'covered' ? 'Sisa dana dari bulan lalu' : sum.status === 'deficit' ? 'Pengeluaran melebihi dana' : 'Savings rate bulan ini'}
+      </p>
+      <p class="text-4xl font-extrabold tabular-nums" style="letter-spacing: -0.04em; color: {ringColor}">
+        {#if sum.status === 'covered'}{formatRpC(sum.carryLeft)}{:else if sum.status === 'deficit'}-{formatRpC(sum.deficit)}{:else}{savRate}%{/if}
       </p>
       <p class="text-sm text-txt-secondary">
-        {savRate >= 30 ? 'Bagus! Dompet lu lagi sehat banget' : savRate >= 10 ? 'Lumayan, masih bisa lebih hemat' : 'Waduh, rem dikit ya'}
+        {#if sum.status === 'covered'}
+          Dipakai {formatRpC(sum.covered)} dari sisa bulan lalu {formatRpC(sum.carry)}. Aman, belum ada pemasukan baru.
+        {:else if sum.status === 'deficit'}
+          Sisa bulan lalu {formatRpC(sum.carry)} sudah habis, kurang {formatRpC(sum.deficit)}. Rem dikit ya
+        {:else}
+          {savRate >= 30 ? 'Bagus! Dompet lu lagi sehat banget' : savRate >= 10 ? 'Lumayan, masih bisa lebih hemat' : 'Waduh, rem dikit ya'}
+        {/if}
       </p>
     </div>
   </section>
@@ -195,6 +230,14 @@
             <p class="text-sm font-extrabold mt-0.5">{formatRpC(stats[w.id]?.balance ?? 0)}</p>
           </div>
         {/each}
+        <button
+          on:click={() => goto('/tabungan')}
+          class="shrink-0 rounded-lg px-3 py-2 min-w-[124px] text-left"
+          style="background: var(--bg-card2); border: 2px solid var(--line)"
+        >
+          <p class="text-xs text-txt-secondary truncate">🐷 Tabungan</p>
+          <p class="text-sm font-extrabold mt-0.5">{formatRpC(worth.savings)}</p>
+        </button>
       </div>
     </section>
   {/if}

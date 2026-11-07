@@ -1,5 +1,5 @@
 -- ================================================
--- MY FINANCE — Supabase schema (Sprint 0)
+-- FLOW MONEY — Supabase schema (Sprint 0)
 -- Fresh start: no migration from the old IndexedDB blob format.
 -- Every table follows the same sync-friendly shape:
 --   id          uuid, client-generated (so offline inserts already
@@ -134,6 +134,7 @@ create table if not exists public.budgets (
   cat_id       text not null,
   limit_amount numeric not null,
   month        text not null, -- 'YYYY-MM'
+  rollover     boolean not null default false, -- carry unused limit into the next month
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   deleted_at   timestamptz,
@@ -175,6 +176,7 @@ create table if not exists public.transactions (
   direction      text, -- 'in'/'out' (debt_transfer) or 'deposit'/'withdraw' (saving_transfer)
   bucket_id      uuid references public.saving_buckets(id) on delete set null, -- saving_transfer
   debt_ref       uuid references public.debts(id) on delete set null, -- debt_transfer
+  for_month      text check (for_month is null or for_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'), -- income only: 'YYYY-MM' it should be counted for
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
   deleted_at     timestamptz

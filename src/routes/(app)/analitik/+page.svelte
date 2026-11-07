@@ -1,15 +1,19 @@
 <script lang="ts">
+  import AssistantDock from '$lib/components/AssistantDock.svelte';
   import { transactions, customCategories } from '$lib/stores/data';
   import { getCatList, type Cat } from '$lib/data/categories';
   import {
     getDateRange,
     calcTotals,
     getAvgMonthly,
+    toAnalysisView,
     getMonthlyData,
     getCategoryBreakdown,
     getDayOfWeekData,
     type DateFilter
   } from '$lib/data/analytics';
+  import { summarizePeriod } from '$lib/data/cashflow';
+  import { wallets } from '$lib/stores/data';
   import { formatRp, formatRpC, formatDateShort } from '$lib/data/format';
   import BarChart from '$lib/components/BarChart.svelte';
   import DonutChart from '$lib/components/DonutChart.svelte';
@@ -18,14 +22,17 @@
 
   $: expenseCustom = $customCategories.filter((c) => c.type === 'expense') as unknown as Cat[];
   $: r = getDateRange(period);
-  $: list = $transactions.filter(
+  $: view = toAnalysisView($transactions);
+  $: list = view.filter(
     (t) => (!r || ((t.date as string) >= r.from && (t.date as string) <= r.to)) && t.type !== 'transfer'
   );
   $: totals = calcTotals(list);
-  $: avgInc = getAvgMonthly($transactions, 'income', 3);
+  $: avgInc = getAvgMonthly(view, 'income', 3);
   $: avgExp = getAvgMonthly($transactions, 'expense', 3);
-  $: savRate = totals.income > 0 ? Math.round((totals.saldo / totals.income) * 100) : 0;
-  $: allTxs = $transactions.filter((t) => !r || ((t.date as string) >= r.from && (t.date as string) <= r.to));
+  // Sadar "sisa bulan lalu": defisit yang dibayar dari sisa gaji bulan sebelumnya tidak dihitung rugi.
+  $: sum = summarizePeriod($wallets, $transactions, r?.from ?? '1970-01-01', r?.to ?? '9999-12-31');
+  $: savRate = sum.rate;
+  $: allTxs = view.filter((t) => !r || ((t.date as string) >= r.from && (t.date as string) <= r.to));
 
   $: periodLabel =
     period === 'month' ? 'Bulan Ini' : period === '3month' ? '3 Bulan Terakhir' : period === '6month' ? '6 Bulan Terakhir' : 'Tahun Ini';
@@ -52,7 +59,7 @@
   })();
 
   $: months = period === 'year' ? 12 : period === '6month' ? 6 : period === '3month' ? 3 : 6;
-  $: monthlyData = getMonthlyData($transactions, months);
+  $: monthlyData = getMonthlyData(view, months);
   $: catBreakdown = getCategoryBreakdown($transactions, period, expenseCustom);
   $: dayData = getDayOfWeekData($transactions, period);
   $: maxDay = Math.max(...dayData, 1);
@@ -68,7 +75,7 @@
         ? 'Bagus! Terus pertahankan.'
         : rate >= 0
           ? 'Perlu ditingkatkan lagi.'
-          : 'Pengeluaran melebihi pemasukan!';
+          : 'Pengeluaran melebihi pemasukan dan sisa bulan lalu!';
   const rColor = (rate: number) => (rate >= 15 ? 'var(--income)' : rate >= 0 ? 'var(--warn)' : 'var(--expense)');
 </script>
 
@@ -93,13 +100,20 @@
   <section class="rounded-xl p-5 text-white shadow-lg span-all" style="background: linear-gradient(135deg, var(--primary), var(--primary-light))">
     <p class="text-sm opacity-80">{periodLabel}</p>
     <div class="flex justify-between items-end mt-1">
-      <p class="text-2xl font-semibold">{formatRpC(totals.saldo)}</p>
+      <p class="text-2xl font-semibold">{formatRpC(sum.net)}</p>
       <div class="text-right text-xs opacity-90">
         <p>Savings rate: {savRate}%</p>
         <p>{allTxs.length} transaksi</p>
       </div>
     </div>
+    {#if sum.covered > 0}
+      <p class="text-[11px] opacity-90 mt-2">
+        Termasuk {formatRpC(sum.covered)} pengeluaran yang dibayar dari sisa bulan lalu ({formatRpC(sum.carry)}).
+      </p>
+    {/if}
   </section>
+
+  <AssistantDock screen="analitik" />
 
   <section class="grid grid-cols-2 gap-3">
     <div class="bg-base-card rounded-xl shadow-sm p-3 border border-border">
@@ -113,11 +127,13 @@
       <p class="text-[10px] mt-0.5" style="color: {cmp.color}">{cmp.text}</p>
     </div>
     <div class="bg-base-card rounded-xl shadow-sm p-3 border border-border">
-      <p class="text-[10px] text-txt-secondary">Net Tabungan</p>
-      <p class="text-sm font-semibold mt-1" style="color: {totals.saldo >= 0 ? 'var(--income)' : 'var(--expense)'}">
-        {formatRpC(totals.saldo)}
+      <p class="text-[10px] text-txt-secondary">Arus Kas Bersih</p>
+      <p class="text-sm font-semibold mt-1" style="color: {sum.net >= 0 ? 'var(--income)' : 'var(--expense)'}">
+        {formatRpC(sum.net)}
       </p>
-      <p class="text-[10px] text-txt-secondary mt-0.5">pemasukan − pengeluaran</p>
+      <p class="text-[10px] text-txt-secondary mt-0.5">
+        {sum.covered > 0 ? `murni ${formatRpC(sum.cashNet)}, +${formatRpC(sum.covered)} dari sisa bulan lalu` : 'pemasukan − pengeluaran'}
+      </p>
     </div>
     <div class="bg-base-card rounded-xl shadow-sm p-3 border border-border">
       <p class="text-[10px] text-txt-secondary">Rata-rata Pemasukan</p>

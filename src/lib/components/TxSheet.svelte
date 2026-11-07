@@ -3,7 +3,7 @@
   import BottomSheet from './BottomSheet.svelte';
   import CatPill from './CatPill.svelte';
   import { onDestroy, onMount } from 'svelte';
-  import { getCatList, type Cat } from '$lib/data/categories';
+  import { getPickableCats, getCatList, type Cat } from '$lib/data/categories';
   import { parseAmt, todayStr, formatRpC } from '$lib/data/format';
   import { upsertRecord, softDeleteRecord, newId } from '$lib/db/repo';
   import { showToast } from '$lib/stores/toast';
@@ -13,6 +13,7 @@
   import { queuePhotoUpload, getPhotoUrl, deletePhoto, hasPendingUpload } from '$lib/media/photoUpload';
   import { scanReceipt, isReceiptScanConfigured } from '$lib/ocr/scanReceipt';
   import { session } from '$lib/stores/session';
+  import { shiftMonth, monthLabelOf } from '$lib/data/budget';
   import type { SyncableRecord } from '$lib/db/dexie';
 
   export let open = false;
@@ -27,6 +28,13 @@
   let catId = 'other_inc';
   let walletId = '';
   let wasOpen = false;
+
+  // "Dihitung untuk bulan": pemasukan yang masuk akhir bulan (mis. gajian tgl 28) bisa dihitung untuk
+  // bulan depan, supaya savings rate & laporan bulan itu tidak keliru. Saldo dompet tetap berubah di tanggal aslinya.
+  let countFor: 'same' | 'next' = 'same';
+  let hadForMonth = false; // record lama sudah punya kolom for_month → perlu ditulis (null) saat dikembalikan
+  $: dateMonth = (date || todayStr()).slice(0, 7);
+  $: nextMonthKey = shiftMonth(dateMonth, 1);
 
   // Photo attachment state. Kept separate from the amount/desc/etc
   // fields above because it has its own async lifecycle (compression,
@@ -73,6 +81,8 @@
     amountStr = editing ? Number(editing.amount).toLocaleString('id-ID') : '';
     desc = (editing?.description as string) || '';
     date = (editing?.date as string) || todayStr();
+    hadForMonth = !!editing && 'for_month' in editing && editing.for_month != null;
+    countFor = editing?.for_month && editing.for_month === shiftMonth(date.slice(0, 7), 1) ? 'next' : 'same';
     note = (editing?.note as string) || '';
     catId = (editing?.cat_id as string) || (type === 'income' ? 'other_inc' : 'other_exp');
     walletId = (editing?.wallet_id as string) || $wallets[0]?.id || '';
@@ -129,7 +139,7 @@
     }
     scanning = true;
     try {
-      const expenseCats = getCatList('expense', $customCategories as unknown as Cat[]).map((c) => ({
+      const expenseCats = getPickableCats('expense', $customCategories as unknown as Cat[]).map((c) => ({
         id: c.id,
         name: c.name
       }));
@@ -184,9 +194,12 @@
 
   onDestroy(clearNewPhoto);
 
-  $: cats = getCatList(
+  // Kategori sistem (Tabungan / Transfer Tabungan / Hutang) disembunyikan dari input manual —
+  // pakai menu Tabungan / Hutang supaya saldo kantong & dompet tetap sinkron.
+  $: cats = getPickableCats(
     type,
-    $customCategories.filter((c) => c.type === type) as unknown as Cat[]
+    $customCategories.filter((c) => c.type === type) as unknown as Cat[],
+    editing?.cat_id as string | undefined
   );
 
   // A wallet with 0 (or negative) balance can't fund an expense — this
@@ -246,6 +259,9 @@
     const txId = editing?.id ?? newId();
     const photoValue = removePhoto ? null : existingPhotoPath;
 
+    // Kolom for_month hanya dikirim kalau dipakai (atau sedang dikembalikan ke null) —
+    // supaya transaksi biasa tetap aman walau migrasi database belum dijalankan.
+    const forMonth = type === 'income' && countFor === 'next' ? nextMonthKey : null;
     await upsertRecord('transactions', {
       id: txId,
       type,
@@ -255,7 +271,8 @@
       note: note.trim(),
       cat_id: catId,
       wallet_id: walletId,
-      photo: photoValue
+      photo: photoValue,
+      ...(forMonth !== null || hadForMonth ? { for_month: forMonth } : {})
     });
 
     // Storage path is deterministic ({userId}/{txId}.{ext}), so
@@ -372,6 +389,32 @@
       class="w-full rounded-lg bg-base-input border px-4 py-3 text-sm text-txt-primary"
       style="border-color: {autofilledDate ? 'var(--warn, #eab308)' : 'var(--border)'}"
     />
+    {#if type === 'income'}
+      <div class="flex flex-col gap-1.5">
+        <p class="text-xs text-txt-secondary">Dihitung untuk bulan</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            on:click={() => (countFor = 'same')}
+            class="rounded-lg border px-3 py-2 text-xs font-semibold"
+            style="border-color: {countFor === 'same' ? 'var(--primary)' : 'var(--border)'}; background: {countFor === 'same' ? 'var(--bg-card2)' : 'transparent'}"
+          >
+            {monthLabelOf(dateMonth)}
+          </button>
+          <button
+            type="button"
+            on:click={() => (countFor = 'next')}
+            class="rounded-lg border px-3 py-2 text-xs font-semibold"
+            style="border-color: {countFor === 'next' ? 'var(--primary)' : 'var(--border)'}; background: {countFor === 'next' ? 'var(--bg-card2)' : 'transparent'}"
+          >
+            {monthLabelOf(nextMonthKey)}
+          </button>
+        </div>
+        <p class="text-[11px] text-txt-secondary">
+          Gajian akhir bulan? Pilih bulan depan supaya laporan dan savings rate bulan itu benar. Saldo dompet tetap bertambah hari ini.
+        </p>
+      </div>
+    {/if}
     <textarea
       bind:value={note}
       placeholder="Catatan (opsional)"

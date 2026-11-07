@@ -2,8 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Font self-hosted (static/fonts) — tidak lagi bergantung ke Google Fonts, jadi tampil sama saat offline. */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  src: url('/fonts/BricolageGrotesque-var.woff') format('woff');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('/fonts/DMMono-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('/fonts/DMMono-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ==========================================================================
-   My Finance — desain baru ("sticker" look): border tebal, bayangan keras,
+   Flow Money — desain baru ("sticker" look): border tebal, bayangan keras,
    ikon garis, animasi selalu menyala. Semua warna tetap lewat CSS variables
    supaya ganti tema (emerald / pink / ocean) dan mode gelap tidak perlu rebuild.
    ========================================================================== */
@@ -522,6 +545,15 @@ body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
   .chat-root {
     height: calc(100dvh - 4rem - 24px);
   }
+}
+
+/* Chat di dalam panel bawah (AssistantSheet): tinggi tetap, mengecil saat keyboard muncul */
+.chat-embedded {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: min(calc(var(--vvh, 100dvh) - 12rem), 600px);
+  min-height: 280px;
 }
 
 /* Progress bar di semua halaman: tebal + berbingkai, senada kartu */

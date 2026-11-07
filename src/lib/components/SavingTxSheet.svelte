@@ -1,11 +1,10 @@
 <script lang="ts">
   import BottomSheet from './BottomSheet.svelte';
   import { parseAmt, todayStr, formatRpC } from '$lib/data/format';
-  import { upsertRecord, atomic } from '$lib/db/repo';
+  import { depositToBucket, withdrawFromBucket } from '$lib/db/savingOps';
   import { showToast } from '$lib/stores/toast';
-  import { wallets, transactions, savingBuckets, savingTxs } from '$lib/stores/data';
+  import { wallets, transactions, savingBuckets } from '$lib/stores/data';
   import { computeWalletStats } from '$lib/data/wallets';
-  import { getBucketBalance } from '$lib/data/saving';
 
   export let open = false;
   export let mode: 'deposit' | 'withdraw' = 'deposit';
@@ -38,7 +37,10 @@
     amountStr = parseAmt((e.target as HTMLInputElement).value).toLocaleString('id-ID');
   }
 
+  let busy = false;
+
   async function submit() {
+    if (busy) return;
     if (!selectedBucketId) {
       showToast('Pilih kantong tabungan', 'error');
       return;
@@ -52,61 +54,16 @@
       showToast('Pilih dompet', 'error');
       return;
     }
-
-    const bucket = $savingBuckets.find((b) => b.id === selectedBucketId);
-    if (mode === 'deposit' && bucket?.status === 'completed') {
-      showToast('Kantong ini sudah selesai — buka lagi dulu untuk menabung', 'error');
+    // Validasi + penulisan atomic (saving_txs + cermin di dompet) ada di savingOps.ts —
+    // dipakai juga oleh Asisten AI supaya aturannya tidak pernah beda.
+    busy = true;
+    const move = { bucketId: selectedBucketId, walletId: selectedWalletId, amount, date, note };
+    const res = mode === 'deposit' ? await depositToBucket(move) : await withdrawFromBucket(move);
+    busy = false;
+    if (!res.ok) {
+      showToast(res.error, 'error');
       return;
     }
-    if (mode === 'deposit') {
-      const bal = walletStats[selectedWalletId]?.balance ?? 0;
-      if (bal < amount) {
-        showToast('Saldo dompet tidak cukup', 'error');
-        return;
-      }
-    } else {
-      const bucketBal = getBucketBalance(selectedBucketId, $savingTxs);
-      if (bucketBal < amount) {
-        showToast('Saldo tabungan tidak cukup', 'error');
-        return;
-      }
-    }
-
-    // BUGFIX (audit #2, atomicity): these two writes used to run as
-    // separate upsertRecord calls — if the app got interrupted between
-    // them (closed tab, crash, IndexedDB error), a saving_txs deposit
-    // could exist with no matching transactions row, silently making
-    // that money count as BOTH still-in-wallet (nothing recorded it
-    // leaving) AND already-in-the-bucket (saving_txs says it arrived).
-    // atomic() makes this one all-or-nothing unit.
-    const desc = mode === 'deposit' ? `Tabung → ${bucket?.name || 'Tabungan'}` : `Tarik ← ${bucket?.name || 'Tabungan'}`;
-    await atomic(['saving_txs', 'transactions'], async () => {
-      await upsertRecord('saving_txs', {
-        bucket_id: selectedBucketId,
-        wallet_id: selectedWalletId,
-        type: mode,
-        amount,
-        date,
-        note: note.trim()
-      });
-      // Mirrors the wallet balance via a dedicated 'saving_transfer'
-      // type + direction, exactly like the original — every
-      // income/expense filter already excludes this type, so nothing
-      // extra to remember elsewhere.
-      await upsertRecord('transactions', {
-        type: 'saving_transfer',
-        direction: mode,
-        amount,
-        cat_id: 'saving_transfer',
-        description: desc,
-        date,
-        wallet_id: selectedWalletId,
-        note: note.trim(),
-        photo: null,
-        bucket_id: selectedBucketId
-      });
-    });
-
     showToast(mode === 'deposit' ? `Berhasil menabung ${formatRpC(amount)}` : `Berhasil menarik ${formatRpC(amount)}`);
     onClose();
   }
@@ -167,7 +124,8 @@
 
     <button
       on:click={submit}
-      class="rounded-lg py-3 text-sm font-medium text-white mt-1"
+      disabled={busy}
+      class="rounded-lg py-3 disabled:opacity-60 text-sm font-medium text-white mt-1"
       style="background: {mode === 'deposit' ? 'var(--primary)' : 'var(--expense)'}"
     >
       {mode === 'deposit' ? 'Tabung' : 'Tarik'}
