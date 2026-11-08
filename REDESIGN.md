@@ -1,4 +1,4 @@
-# Redesign My Finance — catatan perubahan
+# Redesign Flow Money — catatan perubahan
 
 Logika data (Dexie, Supabase, sync, asisten AI) TIDAK diubah. Yang berubah hanya tampilan.
 

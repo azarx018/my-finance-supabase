@@ -31,7 +31,7 @@ function dlBlob(content: string, filename: string, type: string): void {
 export async function exportJSON(): Promise<void> {
   const userId = getUserId();
   const data: Record<string, unknown> = {
-    app: 'My Finance',
+    app: 'Flow Money',
     version: APP_VERSION,
     exported: new Date().toISOString()
   };
@@ -39,7 +39,7 @@ export async function exportJSON(): Promise<void> {
     const rows = await db[table].toArray();
     data[table] = rows.filter((r) => !r.deleted_at && r.user_id === userId);
   }
-  dlBlob(JSON.stringify(data, null, 2), `my-finance-backup-${todayStr()}.json`, 'application/json');
+  dlBlob(JSON.stringify(data, null, 2), `flowmoney-backup-${todayStr()}.json`, 'application/json');
 }
 
 export async function exportCSV(): Promise<void> {
@@ -60,7 +60,7 @@ export async function exportCSV(): Promise<void> {
   );
   const csv = ['ID,Tipe,Nominal,Deskripsi,Tanggal,Dompet,Kategori,Catatan', ...lines].join('\n');
   // BOM prefix so Excel opens the UTF-8 file with correct encoding.
-  dlBlob('\uFEFF' + csv, `my-finance-${todayStr()}.csv`, 'text/csv;charset=utf-8;');
+  dlBlob('\uFEFF' + csv, `flowmoney-${todayStr()}.csv`, 'text/csv;charset=utf-8;');
 }
 
 export interface ImportResult {

@@ -43,7 +43,7 @@
         </svg>
       </div>
       <h1 class="text-3xl font-extrabold tracking-tight text-txt-primary">Buat Password Baru</h1>
-      <p class="text-sm text-txt-secondary mt-1">Masukkan password baru untuk akun My Finance kamu.</p>
+      <p class="text-sm text-txt-secondary mt-1">Masukkan password baru untuk akun Flow Money kamu.</p>
     </div>
 
     {#if done}

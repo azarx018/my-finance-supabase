@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { signIn, signUp, requestPasswordReset } from '$lib/stores/auth';
+  import { signIn, signUp, requestPasswordReset, signInWithOAuth } from '$lib/stores/auth';
+
+  // Terms/Privacy live on the separate landing site. Default: https://azh-flowmoney.vercel.app; override with VITE_LANDING_URL.
+  const LANDING = (import.meta.env.VITE_LANDING_URL ?? 'https://azh-flowmoney.vercel.app').replace(/\/$/, '');
 
   let email = '';
   let password = '';
@@ -7,6 +10,21 @@
   let error = '';
   let info = '';
   let loading = false;
+  let oauthLoading = false;
+
+  async function google() {
+    error = '';
+    info = '';
+    oauthLoading = true;
+    const { error: err } = await signInWithOAuth('google');
+    // Sukses = browser sudah dialihkan ke Google (tidak sampai sini). Kalau sampai, berarti gagal.
+    oauthLoading = false;
+    if (err) {
+      error = /provider is not enabled|Unsupported provider/i.test(err.message)
+        ? 'Login Google belum diaktifkan di server. Coba masuk dengan email dulu.'
+        : err.message;
+    }
+  }
 
   async function submit() {
     error = '';
@@ -38,10 +56,11 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center font-main p-6">
+<div class="min-h-[100dvh] flex flex-col items-center justify-center font-main px-6 py-8" style="padding-top: max(2rem, env(safe-area-inset-top)); padding-bottom: max(2rem, env(safe-area-inset-bottom))">
+  <div class="w-full max-w-sm flex flex-col items-center">
   <form
     on:submit|preventDefault={submit}
-    class="w-full max-w-sm bg-base-card rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-border toast-in"
+    class="w-full bg-base-card rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-border toast-in"
   >
     <div>
       <div class="w-14 h-14 rounded-full grid place-items-center coin-spin mb-3" style="background: var(--coin); border: 2px solid var(--line); box-shadow: var(--shadow-sm); color: #12151f">
@@ -49,7 +68,7 @@
           <path d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v10M9.5 9.5h4a1.5 1.5 0 010 3h-3a1.5 1.5 0 000 3h4" />
         </svg>
       </div>
-      <h1 class="text-3xl font-extrabold tracking-tight text-txt-primary">My Finance</h1>
+      <h1 class="text-3xl font-extrabold tracking-tight text-txt-primary">Flow Money</h1>
       <p class="text-sm text-txt-secondary mt-1">
         {mode === 'signin'
           ? 'Masuk untuk sinkronkan data di semua device'
@@ -58,6 +77,27 @@
             : 'Masukkan email untuk reset password'}
       </p>
     </div>
+
+    {#if mode !== 'forgot'}
+      <button
+        type="button"
+        on:click={google}
+        disabled={oauthLoading || loading}
+        class="rounded-xl py-3 text-sm font-extrabold border-2 flex items-center justify-center gap-2 disabled:opacity-60"
+        style="background: var(--bg-card); border-color: var(--line); box-shadow: var(--shadow-sm); color: var(--txt-primary)"
+      >
+        <svg viewBox="0 0 48 48" class="w-5 h-5" aria-hidden="true">
+          <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/>
+          <path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 010-9.4l-7.9-6.1a24 24 0 000 21.6l7.9-6.1z"/>
+          <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/>
+        </svg>
+        {oauthLoading ? 'Mengalihkan…' : 'Lanjut dengan Google'}
+      </button>
+      <div class="flex items-center gap-3 text-[11px] text-txt-secondary -my-1">
+        <span class="flex-1 h-px" style="background: var(--border)"></span>atau pakai email<span class="flex-1 h-px" style="background: var(--border)"></span>
+      </div>
+    {/if}
 
     <input
       type="email"
@@ -93,8 +133,8 @@
       </button>
     {/if}
 
-    {#if error}<p class="text-xs" style="color: var(--expense)">{error}</p>{/if}
-    {#if info}<p class="text-xs" style="color: var(--income)">{info}</p>{/if}
+    {#if error}<p class="text-xs" role="alert" style="color: var(--expense)">{error}</p>{/if}
+    {#if info}<p class="text-xs" role="status" style="color: var(--income)">{info}</p>{/if}
 
     <button
       type="submit"
@@ -117,4 +157,10 @@
       {mode === 'signin' ? 'Belum punya akun? Daftar' : mode === 'signup' ? 'Sudah punya akun? Masuk' : 'Kembali ke halaman masuk'}
     </button>
   </form>
+  <p class="text-[11px] text-txt-secondary text-center mt-4">
+    Dengan masuk, kamu menyetujui
+    <a href="{LANDING}/terms" target="_blank" rel="noopener" class="underline">Syarat Penggunaan</a> dan
+    <a href="{LANDING}/privacy" target="_blank" rel="noopener" class="underline">Kebijakan Privasi</a>.
+  </p>
+  </div>
 </div>

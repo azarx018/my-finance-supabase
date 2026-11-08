@@ -282,7 +282,7 @@ function buildSystemInstruction(body: AssistantRequestBody): string {
       ? Math.round(((body.spending_this_month.total - body.spending_last_month.total) / body.spending_last_month.total) * 100)
       : null;
 
-  return `Kamu adalah asisten keuangan pribadi di aplikasi "My Finance". Jawab dengan Bahasa Indonesia santai, ringkas (ini chat di HP, bukan esai), dan ramah.
+  return `Kamu adalah asisten keuangan pribadi di aplikasi "Flow Money". Jawab dengan Bahasa Indonesia santai, ringkas (ini chat di HP, bukan esai), dan ramah.
 
 Hari ini tanggal: ${body.today}. Bulan yang sedang dibahas: ${body.current_month}.
 

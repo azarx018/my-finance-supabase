@@ -1,9 +1,10 @@
 # CI/CD Deploy Setup (GitHub Actions)
 
 `.github/workflows/deploy.yml` deploys the Cloudflare Worker (OCR
-proxy) on every push to `main`. The SvelteKit app itself is deployed by
-Vercel's own native GitHub integration — no Action needed for that
-part, Vercel handles it automatically whenever you push.
+proxy) **manually only** (Actions → "Deploy Cloudflare Worker" → Run workflow).
+Auto-deploy on push is disabled. Likewise, Vercel's Git auto-deploy is
+disabled via `git.deploymentEnabled: false` in `vercel.json` — deploy the app
+manually (Vercel dashboard → Redeploy, or `vercel --prod`).
 
 This workflow exists specifically because `wrangler` doesn't run
 natively in Termux — GitHub's runner is a normal Ubuntu machine, so it
@@ -39,8 +40,8 @@ Not a GitHub secret — set this directly in the Vercel dashboard
 ## First-time order of operations
 
 1. Add the 3 GitHub secrets above.
-2. Push to `main` (or run the workflow manually from the **Actions**
-   tab → "Deploy Cloudflare Worker" → **Run workflow**).
+2. Run the workflow manually from the **Actions**
+   tab → "Deploy Cloudflare Worker" → **Run workflow**.
 3. The job finishes and prints the Worker's URL in its logs (look for
    `Published myfinance-ai-worker` → the `*.workers.dev` line right
    after it).
@@ -49,6 +50,5 @@ Not a GitHub secret — set this directly in the Vercel dashboard
    Vercel dashboard) so it picks up the new env var — Vercel won't
    rebuild on its own just because a dashboard env var changed.
 
-After that, every push to `main` keeps the Worker in sync automatically
-— Vercel deploys the app side on its own as it always has.
+After that, re-run the workflow whenever the Worker changes.
 

@@ -1,5 +1,5 @@
 -- ================================================
--- MY FINANCE — Supabase schema (Sprint 0)
+-- FLOW MONEY — Supabase schema (Sprint 0)
 -- Fresh start: no migration from the old IndexedDB blob format.
 -- Every table follows the same sync-friendly shape:
 --   id          uuid, client-generated (so offline inserts already

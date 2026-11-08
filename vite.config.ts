@@ -30,11 +30,11 @@ export default defineConfig({
       // data, the SW only owns offline behavior for the app shell itself.
       workbox: {
         // Prefixes every Workbox-managed cache name with the app version
-        // (e.g. "my-finance-v0.1.0-precache-..."), purely so it's obvious
+        // (e.g. "flowmoney-v0.1.0-precache-..."), purely so it's obvious
         // in DevTools which deployed version a given cache belongs to —
         // doesn't change update-detection behavior, which is already
         // content-hash based (see note below).
-        cacheId: `my-finance-v${pkg.version}`,
+        cacheId: `flowmoney-v${pkg.version}`,
         // 'development' skips workbox-build's own terser minification pass
         // on the generated sw.js. Needed because terser can hang
         // indefinitely in constrained/ARM environments (e.g. building
@@ -42,19 +42,14 @@ export default defineConfig({
         // bundle, which Vite still minifies normally via esbuild. The
         // service worker file just ends up a few KB larger, unminified.
         mode: 'development',
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,woff,woff2}'],
+        globIgnores: ['**/fonts/DMMono-*'],
+        // NOTE: index.html (app shell) is NOT in the glob output — adapter-static writes it after this plugin runs.
+        // scripts/patch-sw.mjs (postbuild) adds it to the precache; verify-build.mjs fails the build if it is missing.
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
-            // Google Fonts — cache-first, long lived
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }
-            }
-          },
-          {
+            // Fonts are self-hosted (static/fonts) and precached via globPatterns above.
             // Explicitly bypass SW for Supabase — always go to network,
             // let the sync engine decide what happens when it fails.
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -63,14 +58,17 @@ export default defineConfig({
         ]
       },
       manifest: {
-        name: 'My Finance',
-        short_name: 'My Finance',
+        name: 'Flow Money',
+        short_name: 'Flow Money',
         description: 'Pencatatan keuangan pribadi — income & expense tracker',
+        // The app lives at "/" (landing page is a separate static site).
+        // "/" redirects to /dashboard client-side.
+        id: '/',
         start_url: '/',
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#0a0a0f',
+        background_color: '#ffffff',
         theme_color: '#ffffff',
         lang: 'id',
         categories: ['finance', 'productivity', 'utilities'],

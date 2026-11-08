@@ -2,11 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Font self-hosted (static/fonts) — tidak lagi bergantung ke Google Fonts, jadi tampil sama saat offline. */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  src: url('/fonts/BricolageGrotesque-var.woff') format('woff');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
 /* ==========================================================================
-   My Finance — desain baru ("sticker" look): border tebal, bayangan keras,
+   Flow Money — desain baru ("sticker" look): border tebal, bayangan keras,
    ikon garis, animasi selalu menyala. Semua warna tetap lewat CSS variables
    supaya ganti tema (emerald / pink / ocean) dan mode gelap tidak perlu rebuild.
    ========================================================================== */
+
+/* Satu-satunya font app: Bricolage Grotesque (self-hosted). Semua elemen mewarisi ini. */
+:root {
+  --font-sans: 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
 
 /* ---------- Tema warna ---------- */
 body,
@@ -167,7 +180,7 @@ body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
     -webkit-text-size-adjust: 100%;
   }
   body {
-    font-family: 'Bricolage Grotesque', 'Sora', system-ui, sans-serif;
+    font-family: var(--font-sans);
     font-optical-sizing: auto;
     background: radial-gradient(var(--dots) 1.2px, transparent 1.4px) 0 0 / 22px
         22px,
@@ -204,9 +217,14 @@ body.dark-mode [style*='linear-gradient(135deg, var(--primary)'] {
   outline: 3px solid var(--info);
   outline-offset: 2px;
 }
+button,
 input,
 select,
-textarea {
+textarea,
+optgroup {
+  font-family: inherit;
+}
+svg text {
   font-family: inherit;
 }
 input:focus,

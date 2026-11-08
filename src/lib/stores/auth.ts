@@ -55,6 +55,26 @@ export async function signIn(email: string, password: string) {
 }
 
 /**
+ * Masuk lewat OAuth (Google). Browser diarahkan ke penyedia login, lalu kembali ke /auth/callback
+ * (halaman yang menunggu sesi dibaca supabase-js lewat detectSessionInUrl, lalu meneruskan ke /dashboard).
+ * Kalau penyedia belum diaktifkan di Supabase / redirect URL belum didaftarkan, error-nya dikembalikan
+ * (atau muncul di URL saat kembali) dan ditampilkan di halaman callback.
+ */
+export async function signInWithOAuth(provider: 'google') {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return { data: null, error: new Error('Butuh koneksi internet untuk masuk') };
+  }
+  return supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      // Selalu tampilkan pemilih akun supaya tidak otomatis masuk ke akun Google yang salah.
+      queryParams: { prompt: 'select_account' }
+    }
+  });
+}
+
+/**
  * Sends the "reset your password" email via Supabase Auth. The link in
  * that email brings the user back to /reset-password with a temporary
  * recovery session (handled by the PASSWORD_RECOVERY branch above).

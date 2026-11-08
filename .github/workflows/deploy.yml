@@ -1,13 +1,12 @@
 name: Deploy Cloudflare Worker
 
-# Runs on every push to main. Vercel deploys the SvelteKit app on its
-# own via the native GitHub integration — this workflow only handles
-# the Cloudflare Worker, since that's the part `wrangler` can't do
-# locally from Termux.
+# AUTO-DEPLOY DIMATIKAN: push ke main TIDAK lagi men-deploy Worker.
+# Deploy manual: GitHub → tab Actions → "Deploy Cloudflare Worker" → Run workflow.
+# Untuk menyalakan lagi auto-deploy, tambahkan di bawah `on:`:
+#   push:
+#     branches: [main]
 on:
-  push:
-    branches: [main]
-  workflow_dispatch: {} # lets you trigger a redeploy manually from the Actions tab
+  workflow_dispatch: {} # hanya jalan kalau dipicu manual dari tab Actions
 
 jobs:
   deploy-worker:

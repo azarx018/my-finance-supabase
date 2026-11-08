@@ -22,11 +22,14 @@
     const path = $page.url.pathname;
     const onLoginPage = path === '/login';
     const onResetPage = path === '/reset-password';
+    // /auth/callback = tujuan balik OAuth (Google). Halaman itu sendiri yang menampilkan error
+    // saat tidak ada sesi, jadi guard tidak boleh melempar ke /login (pesan error-nya akan hilang).
+    const onCallbackPage = path === '/auth/callback';
     if ($passwordRecovery) {
       if (!onResetPage) goto('/reset-password');
     } else {
-      if (!$session && !onLoginPage) goto('/login');
-      if ($session && (onLoginPage || onResetPage)) goto('/dashboard');
+      if (!$session && !onLoginPage && !onCallbackPage) goto('/login');
+      if ($session && (onLoginPage || onResetPage || onCallbackPage)) goto('/dashboard');
     }
   }
 </script>
