@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kebijakan Privasi — Flow Money</title>
+<meta name="description" content="Kebijakan privasi Flow Money: data apa yang disimpan, untuk apa, dan cara menghapusnya.">
+<link rel="canonical" href="https://azh-flowmoney.vercel.app/privacy">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="theme-color" content="#eef2ff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1220" media="(prefers-color-scheme: dark)">
+<link rel="preload" href="/fonts/BricolageGrotesque-var.woff" as="font" type="font/woff" crossorigin>
+<style>@font-face{font-family:'Bricolage Grotesque';src:url('/fonts/BricolageGrotesque-var.woff') format('woff');font-weight:400 800;font-display:swap}
+:root{--bg:#eef2ff;--card:#fff;--ink:#12151f;--t2:#586078;--p:#0c72bd;--line:#12151f;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1220;--card:#181c2e;--ink:#eef0fa;--t2:#a3aac6;--p:#5cb3f0;--line:#eef0fa}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 'Bricolage Grotesque',system-ui,sans-serif;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+main{max-width:720px;margin:0 auto;padding:24px 20px 56px}
+a{color:var(--p)}h1{font-size:2rem;line-height:1.15;margin:.4em 0 .2em;letter-spacing:-.02em}
+h2{font-size:1.15rem;margin:1.8em 0 .4em}p,li{color:var(--ink)}.m{color:var(--t2);font-size:.9rem}
+ul{padding-left:1.2em}li{margin:.25em 0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:700}
+.top a{text-decoration:none;color:var(--ink)}
+.box{background:var(--card);border:2px solid var(--line);border-radius:16px;box-shadow:4px 4px 0 var(--line);padding:14px 16px;margin:18px 0}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--t2);font-size:.85rem;color:var(--t2)}</style>
+</head>
+<body>
+<main>
+<div class="top"><a href="/">← Flow Money</a><a href="/terms">Syarat Penggunaan</a></div>
+<h1>Kebijakan Privasi</h1>
+<p class="m">Terakhir diperbarui: 7 November 2026</p>
+<p>Flow Money adalah aplikasi pencatat keuangan pribadi yang dikembangkan oleh Azar-Dev. Halaman ini menjelaskan data apa yang kami simpan, untuk apa, dan bagaimana kamu bisa mengontrolnya.</p>
+<div class="box"><strong>Singkatnya:</strong> data keuanganmu adalah milikmu. Tidak ada iklan, data tidak dijual, dan kami tidak memakai pelacak analitik pihak ketiga di aplikasi.</div>
+
+<h2>1. Data yang kami proses</h2>
+<ul>
+<li><strong>Akun:</strong> alamat email dan kata sandi (disimpan terenkripsi/di-hash oleh Supabase Auth). Jika masuk dengan Google, kami menerima email dan nama profil dari Google; kami tidak mendapat kata sandi Google-mu.</li>
+<li><strong>Data keuangan yang kamu masukkan:</strong> dompet, transaksi, kategori, budget, tabungan, hutang/piutang, pengingat, dan catatan.</li>
+<li><strong>Foto struk (opsional):</strong> hanya jika kamu melampirkan foto pada sebuah transaksi.</li>
+<li><strong>Pesan ke Asisten AI (opsional):</strong> teks yang kamu ketik beserta ringkasan data keuangan yang dibutuhkan untuk menjawab (misalnya daftar dompet dan kategori, serta ringkasan pengeluaran).</li>
+<li><strong>Data teknis dasar:</strong> alamat IP dan log permintaan yang dicatat penyedia hosting dan infrastruktur untuk keamanan dan operasional.</li>
+</ul>
+
+<h2>2. Di mana data disimpan</h2>
+<ul>
+<li><strong>Di perangkatmu:</strong> aplikasi bersifat <em>offline-first</em>; salinan data disimpan di penyimpanan peramban (IndexedDB) sehingga bisa dipakai tanpa internet.</li>
+<li><strong>Di server (Supabase):</strong> agar tersinkron antar perangkat dan bisa dipulihkan. Setiap baris data terikat ke akunmu dan dilindungi aturan akses per pengguna (Row Level Security).</li>
+</ul>
+
+<h2>3. Pihak ketiga yang terlibat</h2>
+<ul>
+<li><strong>Supabase</strong> — autentikasi, basis data, penyimpanan foto struk.</li>
+<li><strong>Vercel</strong> — hosting aplikasi dan halaman web.</li>
+<li><strong>Cloudflare Workers + Google Gemini</strong> — hanya saat kamu memakai Asisten AI atau Baca Struk Otomatis: teks/foto dikirim lewat Worker kami ke Gemini untuk diproses, lalu hasilnya dikembalikan. Fitur ini tidak jalan kalau kamu tidak memakainya.</li>
+<li><strong>Google Sign-In</strong> — jika kamu memilih masuk dengan Google.</li>
+<li><strong>Formspree dan Saweria</strong> — formulir saran dan tautan donasi di halaman utama adalah layanan terpisah dengan kebijakan masing-masing.</li>
+</ul>
+
+<h2>4. Untuk apa data dipakai</h2>
+<p>Hanya untuk menjalankan fitur aplikasi: menampilkan dan menyinkronkan catatanmu, menghitung ringkasan/laporan, dan menjalankan fitur AI yang kamu minta. Kami tidak menjual data, tidak menampilkan iklan, dan tidak memakai datamu untuk profil iklan.</p>
+
+<h2>5. Kontrol dan penghapusan data</h2>
+<ul>
+<li><strong>Ekspor:</strong> Pengaturan → Backup (JSON/CSV) kapan saja.</li>
+<li><strong>Hapus Semua Data:</strong> mengosongkan catatanmu di semua perangkat yang tersinkron.</li>
+<li><strong>Hapus Permanen dari Server:</strong> menghapus seluruh baris data dan foto struk milikmu dari server (tidak bisa dibatalkan).</li>
+<li><strong>Penghapusan akun:</strong> hubungi kami lewat formulir saran di <a href="/">halaman utama</a> dan sebutkan email akunmu.</li>
+</ul>
+
+<h2>6. Keamanan</h2>
+<p>Koneksi memakai HTTPS dan akses data dibatasi per akun. Tidak ada sistem yang 100% aman; jagalah kata sandi dan perangkatmu, dan simpan backup di tempat yang aman.</p>
+
+<h2>7. Anak-anak</h2>
+<p>Aplikasi ini tidak ditujukan untuk anak di bawah 13 tahun.</p>
+
+<h2>8. Perubahan kebijakan</h2>
+<p>Jika kebijakan ini berubah, tanggal pembaruan di atas akan diubah. Penggunaan lanjutan setelah perubahan berarti kamu menerima versi terbaru.</p>
+
+<h2>9. Kontak</h2>
+<p>Pertanyaan soal privasi? Kirim lewat formulir saran di <a href="/">halaman utama</a>.</p>
+<footer>Flow Money · © 2026 Azar-Dev · <a href="/privacy">Kebijakan Privasi</a> · <a href="/terms">Syarat Penggunaan</a></footer>
+</main>
+</body>
+</html>
