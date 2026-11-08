@@ -1,4 +1,5 @@
 import { PUBLIC_AI_WORKER_URL } from '$env/static/public';
+import type { AssistantSnapshot } from './assistantSnapshot';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
@@ -77,6 +78,8 @@ export interface AssistantContext {
   existing_budget_this_month: Record<string, number>;
   spending_this_month: { total: number; by_category: Array<{ cat_id: string; amount: number }> };
   spending_last_month: { total: number; by_category: Array<{ cat_id: string; amount: number }> };
+  /** Posisi keuangan lengkap (saldo dompet, tabungan, hutang/piutang, bulan ini/lalu, budget terpakai) — sumber kebenaran angka. */
+  snapshot: AssistantSnapshot;
 }
 
 export function isAssistantConfigured(): boolean {

@@ -9,7 +9,8 @@
     "postbuild": "node scripts/patch-sw.mjs && node scripts/verify-build.mjs",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test:assistant": "node scripts/test-assistant.mjs"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",

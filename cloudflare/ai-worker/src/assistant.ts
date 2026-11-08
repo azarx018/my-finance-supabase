@@ -40,6 +40,18 @@ interface SpendingSummary {
   by_category: CategorySpend[]; // sorted highest first
 }
 
+interface AssistantSnapshot {
+  wallets: Array<{ id: string; name: string; balance: number }>;
+  wallets_total: number;
+  savings_buckets: Array<{ id: string; name: string; balance: number; target: number; status: string }>;
+  savings_total: number;
+  receivable: number;
+  payable: number;
+  this_month: { income: number; expense: number };
+  last_month: { income: number; expense: number };
+  budgets_this_month: Array<{ cat_id: string; limit: number; used: number; remaining: number }>;
+}
+
 interface AssistantRequestBody {
   message: string;
   history: ChatTurn[]; // prior turns this session, oldest first — NOT persisted server-side (see Fase B/C notes)
@@ -55,6 +67,7 @@ interface AssistantRequestBody {
   existing_budget_this_month: Record<string, number>; // cat_id -> limit_amount already set for current_month
   spending_this_month: SpendingSummary; // "get_spending_summary" capability — see analytics.ts's getSpendingSummary
   spending_last_month: SpendingSummary; // for "kenapa pengeluaran gue naik?"-type questions
+  snapshot?: AssistantSnapshot | null; // posisi keuangan dari app — SUMBER KEBENARAN angka (saldo, tabungan, hutang)
 }
 
 // The built-in "Tabungan" expense category (categories.ts — id:
@@ -255,13 +268,47 @@ function formatCategorySpend(list: CategorySpend[]): string {
   return list.map((c) => `- ${c.cat_id}: Rp${c.amount.toLocaleString('id-ID')}`).join('\n');
 }
 
-function buildSystemInstruction(body: AssistantRequestBody): string {
+const rp = (n: number) => `Rp${n.toLocaleString('id-ID')}`;
+
+function formatSnapshot(s: AssistantSnapshot | null | undefined): string {
+  if (!s) return '(data posisi keuangan TIDAK TERSEDIA di permintaan ini — jangan menebak saldo/tabungan/hutang; bilang terus terang kamu belum bisa melihatnya)';
+  const wallets = s.wallets.map((w) => `- ${w.name}: ${rp(w.balance)}`).join('\n') || '(tidak ada dompet)';
+  const buckets =
+    s.savings_buckets
+      .map((b) => `- ${b.name}: ${rp(b.balance)}${b.target > 0 ? ` dari target ${rp(b.target)}` : ''}${b.status === 'completed' ? ' (selesai)' : ''}`)
+      .join('\n') || '(belum ada kantong tabungan)';
+  const budgets =
+    s.budgets_this_month
+      .map((b) => `- ${b.cat_id}: terpakai ${rp(b.used)} dari budget ${rp(b.limit)} (sisa ${b.remaining < 0 ? `-${rp(-b.remaining)}, SUDAH LEWAT` : rp(b.remaining)})`)
+      .join('\n') || '(belum ada budget bulan ini)';
+  return `Saldo tiap dompet (sama dengan layar Dompet):
+${wallets}
+Total saldo semua dompet: ${rp(s.wallets_total)}
+
+Tabungan per kantong (terpisah dari saldo dompet — uang yang sudah ditabung TIDAK ada di saldo dompet):
+${buckets}
+Total tabungan: ${rp(s.savings_total)}
+
+Hutang aktif (yang harus user bayar): ${rp(s.payable)}
+Piutang aktif (yang masih harus dibayar orang ke user): ${rp(s.receivable)}
+
+Bulan ini: pemasukan ${rp(s.this_month.income)}, pengeluaran ${rp(s.this_month.expense)}.
+Bulan lalu: pemasukan ${rp(s.last_month.income)}, pengeluaran ${rp(s.last_month.expense)}.
+
+Pemakaian budget bulan ini:
+${budgets}`;
+}
+
+export function buildSystemInstruction(body: AssistantRequestBody): string {
   const expenseCategoryList = body.expense_categories
     .filter((c) => c.id !== SAVINGS_CATEGORY_ID)
     .map((c) => `- ${c.id}: ${c.name}`)
     .join('\n');
   const incomeCategoryList = body.income_categories.map((c) => `- ${c.id}: ${c.name}`).join('\n');
-  const walletList = body.wallets.map((w) => `- ${w.id}: ${w.name}`).join('\n') || '(tidak ada dompet sama sekali)';
+  const balanceById = new Map((body.snapshot?.wallets ?? []).map((w) => [w.id, w.balance]));
+  const walletList = body.wallets
+    .map((w) => `- ${w.id}: ${w.name}${balanceById.has(w.id) ? ` (saldo ${rp(balanceById.get(w.id) as number)})` : ''}`)
+    .join('\n') || '(tidak ada dompet sama sekali)';
   const debtList =
     body.debts.map((d) => `- ${d.id}: ${d.name} (${d.dtype === 'borrowed' ? 'hutang' : 'piutang'}, sisa Rp${d.remaining.toLocaleString('id-ID')})`).join('\n') ||
     '(tidak ada hutang/piutang aktif)';
@@ -309,6 +356,9 @@ ${avgList}
 Budget yang sudah ada bulan ini:
 ${existingList}
 
+POSISI KEUANGAN SAAT INI (SUMBER KEBENARAN — dihitung app dari data terbaru, sama persis dengan yang user lihat di layar):
+${formatSnapshot(body.snapshot)}
+
 RINGKASAN PENGELUARAN bulan ini (total Rp${body.spending_this_month.total.toLocaleString('id-ID')}), per kategori dari yang terbesar:
 ${formatCategorySpend(body.spending_this_month.by_category)}
 
@@ -338,6 +388,13 @@ ATURAN LAIN:
 8. Kalau user tanya "budget gue masuk akal nggak?" — bandingkan "budget yang sudah ada bulan ini" dengan "rata-rata pengeluaran per kategori", kasih pendapat jujur lewat teks, jangan panggil tool.
 9. Kalau user cuma nanya hal lain di luar semua itu, jawab biasa pakai teks, jangan panggil tool apapun.
 10. Jangan mengarang angka/tanggal/nama yang tidak ada dasarnya dari data di atas atau dari yang disebut user sendiri.
+
+ATURAN ANGKA (WAJIB):
+15. Pertanyaan soal saldo, sisa uang, tabungan, hutang/piutang, pemasukan/pengeluaran bulan ini atau bulan lalu, atau pemakaian budget — JAWAB LANGSUNG dari \"POSISI KEUANGAN SAAT INI\" di atas, JANGAN panggil tool. Sebut angka persis dari sana.
+16. Dilarang menjawab saldo/tabungan 0 atau \"belum ada data\" kalau angkanya tertulis di POSISI KEUANGAN. Kalau bagian itu bertuliskan TIDAK TERSEDIA, bilang terus terang kamu belum bisa melihatnya — jangan menebak.
+17. \"Sisa uang\" / \"uang gue berapa\" = saldo dompet; sebut tabungan terpisah (jangan dijumlahkan diam-diam, kecuali user minta total keseluruhan — baru jumlahkan dompet + tabungan dan jelaskan caranya).
+18. Riwayat chat bertanda [BELUM diterapkan] berarti kartu usulan itu belum ditekan \"Terapkan\" — datanya BELUM ada di app dan BELUM masuk ke angka di atas. Jangan bilang itu sudah tercatat.
+19. Jawab sesuai pertanyaan yang terakhir diajukan; jangan menjawab hal lain yang tidak ditanya.
 
 ATURAN MEMORI (remember_fact):
 11. Pakai "HAL-HAL YANG SUDAH DIINGAT" di atas sebagai konteks personal user — sapa pakai nama kalau ada, prioritaskan wallet utama yang diingat kalau relevan, dsb.

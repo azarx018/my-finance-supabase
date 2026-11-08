@@ -1,11 +1,12 @@
 <script lang="ts">
   import Icon from '$lib/components/Icon.svelte';
   import { onMount, tick } from 'svelte';
-  import { transactions, customCategories, budgets, wallets, debts, assistantMemory } from '$lib/stores/data';
+  import { transactions, customCategories, budgets, wallets, debts, assistantMemory, savingBuckets, savingTxs } from '$lib/stores/data';
   import { session, getUserId } from '$lib/stores/session';
   import { getCatList, type Cat, WALLET_EMOJIS } from '$lib/data/categories';
   import { getBudgetMonth } from '$lib/data/budget';
   import { computeWalletStats } from '$lib/data/wallets';
+  import { buildAssistantSnapshot } from '$lib/ai/assistantSnapshot';
   import { todayStr } from '$lib/data/format';
   import {
     getAverageSpendingByCategory,
@@ -179,6 +180,9 @@
   }
 
   function toApiHistory(msgs: ChatMessage[]): ChatTurn[] {
+    // Kartu usulan yang BELUM ditekan "Terapkan" belum tercatat di app — beri tahu model supaya tidak
+    // menjawab seolah-olah transaksi/budget itu sudah masuk (penyebab jawaban tidak nyambung dengan data).
+    const tag = (applied: boolean) => (applied ? ' [SUDAH diterapkan user]' : ' [BELUM diterapkan — belum tercatat di app]');
     return msgs.map((m) => {
       if (!m.action) return { role: m.role, text: m.text };
       const a = m.action;
@@ -186,23 +190,23 @@
         case 'propose_budget':
           return {
             role: m.role,
-            text: `Usulan budget ${a.args.month}: ${a.args.allocations.map((x) => `${x.category_id}=Rp${x.amount}`).join(', ')}. Alasan: ${a.args.reasoning}`
+            text: `Usulan budget ${a.args.month}: ${a.args.allocations.map((x) => `${x.category_id}=Rp${x.amount}`).join(', ')}. Alasan: ${a.args.reasoning}${tag(a.applied)}`
           };
         case 'propose_saving':
-          return { role: m.role, text: `Usulan tabungan "${a.args.name}": Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
+          return { role: m.role, text: `Usulan tabungan "${a.args.name}": Rp${a.args.amount}. Alasan: ${a.args.reasoning}${tag(a.applied)}` };
         case 'propose_wallet':
-          return { role: m.role, text: `Usulan dompet baru "${a.args.name}" saldo awal Rp${a.args.initial_balance}.` };
+          return { role: m.role, text: `Usulan dompet baru "${a.args.name}" saldo awal Rp${a.args.initial_balance}.${tag(a.applied)}` };
         case 'propose_transaction':
           return {
             role: m.role,
-            text: `Usulan transaksi ${a.args.type}: ${a.args.description} Rp${a.args.amount} (${a.args.category_id}, ${a.args.date}).`
+            text: `Usulan transaksi ${a.args.type}: ${a.args.description} Rp${a.args.amount} (${a.args.category_id}, ${a.args.date}).${tag(a.applied)}`
           };
         case 'propose_debt':
-          return { role: m.role, text: `Usulan ${a.args.dtype} "${a.args.name}" Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
+          return { role: m.role, text: `Usulan ${a.args.dtype} "${a.args.name}" Rp${a.args.amount}. Alasan: ${a.args.reasoning}${tag(a.applied)}` };
         case 'propose_debt_payment':
-          return { role: m.role, text: `Usulan bayar hutang id ${a.args.debt_id} Rp${a.args.amount}. Alasan: ${a.args.reasoning}` };
+          return { role: m.role, text: `Usulan bayar hutang id ${a.args.debt_id} Rp${a.args.amount}. Alasan: ${a.args.reasoning}${tag(a.applied)}` };
         case 'remember_fact':
-          return { role: m.role, text: `Usulan diingat: "${a.args.content}"` };
+          return { role: m.role, text: `Usulan diingat: "${a.args.content}"${tag(a.applied)}` };
       }
     });
   }
@@ -262,7 +266,16 @@
           avg_spending_last_3mo: getAverageSpendingByCategory($transactions, 3),
           existing_budget_this_month: existingBudgetThisMonth,
           spending_this_month: spendingThisMonth,
-          spending_last_month: getSpendingSummary($transactions, getPreviousMonth(month))
+          spending_last_month: getSpendingSummary($transactions, getPreviousMonth(month)),
+          snapshot: buildAssistantSnapshot({
+            wallets: $wallets,
+            transactions: $transactions,
+            savingBuckets: $savingBuckets,
+            savingTxs: $savingTxs,
+            debts: $debts,
+            budgets: $budgets,
+            month
+          })
         },
         token
       );

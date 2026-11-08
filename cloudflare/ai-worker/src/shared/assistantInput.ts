@@ -100,6 +100,51 @@ function salaryTransaction(v: unknown) {
   };
 }
 
+function num(v: unknown): number {
+  return isFiniteNumber(v) ? v : 0;
+}
+
+function periodTotals(v: unknown) {
+  return isRecord(v) ? { income: num(v.income), expense: num(v.expense) } : { income: 0, expense: 0 };
+}
+
+/**
+ * `snapshot` = posisi keuangan dari app (saldo dompet, tabungan, hutang/piutang, bulan ini/lalu, budget terpakai).
+ * PENTING: sanitizer membuang field yang tidak ia kenal — dulu saldo dompet hilang di sini sehingga asisten
+ * menjawab saldo 0. Kalau menambah field di AssistantSnapshot (app), tambahkan juga di sini.
+ * Mengembalikan null kalau app tidak mengirim snapshot (model diberi tahu "tidak tersedia", bukan angka 0).
+ */
+function financeSnapshot(v: unknown) {
+  if (!isRecord(v)) return null;
+  const list = (x: unknown) => (Array.isArray(x) ? x.filter(isRecord) : []);
+  const wallets = list(v.wallets)
+    .filter((w) => typeof w.id === 'string' && typeof w.name === 'string')
+    .map((w) => ({ id: w.id as string, name: w.name as string, balance: num(w.balance) }));
+  const buckets = list(v.savings_buckets)
+    .filter((b) => typeof b.name === 'string')
+    .map((b) => ({
+      id: typeof b.id === 'string' ? b.id : '',
+      name: b.name as string,
+      balance: num(b.balance),
+      target: num(b.target),
+      status: typeof b.status === 'string' ? b.status.slice(0, 16) : 'active'
+    }));
+  const budgets = list(v.budgets_this_month)
+    .filter((b) => typeof b.cat_id === 'string')
+    .map((b) => ({ cat_id: b.cat_id as string, limit: num(b.limit), used: num(b.used), remaining: num(b.remaining) }));
+  return {
+    wallets,
+    wallets_total: num(v.wallets_total),
+    savings_buckets: buckets,
+    savings_total: num(v.savings_total),
+    receivable: num(v.receivable),
+    payable: num(v.payable),
+    this_month: periodTotals(v.this_month),
+    last_month: periodTotals(v.last_month),
+    budgets_this_month: budgets
+  };
+}
+
 export type SanitizeResult =
   | { ok: true; body: Rec }
   | { ok: false; error: string };
@@ -134,7 +179,8 @@ export function sanitizeAssistantBody(raw: unknown): SanitizeResult {
       avg_spending_last_3mo: numberRecord(raw.avg_spending_last_3mo),
       existing_budget_this_month: numberRecord(raw.existing_budget_this_month),
       spending_this_month: spendingSummary(raw.spending_this_month),
-      spending_last_month: spendingSummary(raw.spending_last_month)
+      spending_last_month: spendingSummary(raw.spending_last_month),
+      snapshot: financeSnapshot(raw.snapshot)
     }
   };
 }
